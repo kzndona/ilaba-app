@@ -45,6 +45,9 @@ dependencies:
   # Supabase & Authentication
   supabase_flutter: ^1.10.0
 
+  # Environment variables
+  flutter_dotenv: ^5.1.0
+
   # Local Storage
   shared_preferences: ^2.2.0
   hive: ^2.2.0

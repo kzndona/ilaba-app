@@ -1,3 +1,5 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 abstract class ApiClient {
   Future<Map<String, dynamic>> get(String endpoint);
   Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> body);
@@ -15,8 +17,8 @@ class ApiClientImpl implements ApiClient {
   // Add authentication headers
   // Handle error responses
 
-  static const String baseUrl = 'YOUR_SUPABASE_URL/rest/v1';
-  static const String anonKey = 'YOUR_SUPABASE_ANON_KEY';
+  static final String baseUrl = '${dotenv.env['SUPABASE_URL']}/rest/v1';
+  static final String anonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
 
   @override
   Future<Map<String, dynamic>> get(String endpoint) async {

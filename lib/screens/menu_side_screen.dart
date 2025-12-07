@@ -1,8 +1,44 @@
 import 'package:flutter/material.dart';
-import 'package:ilaba/screens/login_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:ilaba/providers/auth_provider.dart';
 
 class MenuSideScreen extends StatelessWidget {
   const MenuSideScreen({super.key});
+
+  Future<void> _handleLogout(BuildContext context) async {
+    final authProvider = context.read<AuthProvider>();
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Logout'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Logout', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      // Perform logout
+      await authProvider.logout();
+
+      // Navigate to login screen and remove all previous routes
+      if (context.mounted) {
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/login', (route) => false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,12 +99,7 @@ class MenuSideScreen extends StatelessWidget {
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text("Log out"),
             textColor: Colors.red,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-              );
-            },
+            onTap: () => _handleLogout(context),
           ),
         ],
       ),
