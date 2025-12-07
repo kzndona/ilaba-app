@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ilaba/screens/login_screen.dart';
 
 class MenuSideScreen extends StatelessWidget {
   const MenuSideScreen({super.key});
@@ -63,8 +64,10 @@ class MenuSideScreen extends StatelessWidget {
             title: const Text("Log out"),
             textColor: Colors.red,
             onTap: () {
-              Navigator.pop(context);
-              // TODO: Log out logic
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+              );
             },
           ),
         ],

@@ -139,7 +139,7 @@ class OrderStatusScreen extends StatelessWidget {
                   elevation: 4,
                 ),
                 child: const Text(
-                  "Confirm",
+                  "Go Back",
                   style: TextStyle(fontSize: 18, color: Colors.white),
                 ),
               ),

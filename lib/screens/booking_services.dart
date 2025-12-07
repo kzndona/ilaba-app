@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ilaba/booking_success.dart';
+import 'package:ilaba/screens/booking_success.dart';
 
 class BookingServiceScreen extends StatefulWidget {
   const BookingServiceScreen({super.key});

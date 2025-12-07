@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ilaba/help_center_screen.dart';
+import 'package:ilaba/screens/help_center_screen.dart';
 
 class FAQScreen extends StatelessWidget {
   const FAQScreen({super.key});

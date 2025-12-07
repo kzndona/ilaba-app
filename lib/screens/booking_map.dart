@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ilaba/booking_services.dart';
+import 'package:ilaba/screens/booking_services.dart';
 
 class BookingMapScreen extends StatelessWidget {
   const BookingMapScreen({super.key});

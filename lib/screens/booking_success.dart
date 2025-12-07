@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ilaba/home_menu_screen.dart';
+import 'package:ilaba/screens/home_menu_screen.dart';
 
 class BookingSuccessScreen extends StatelessWidget {
   const BookingSuccessScreen({super.key});
