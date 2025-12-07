@@ -18,11 +18,7 @@ class BookingService {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'quantity': quantity,
-      'is_premium': isPremium,
-    };
+    return {'name': name, 'quantity': quantity, 'is_premium': isPremium};
   }
 }
 

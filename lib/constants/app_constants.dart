@@ -5,7 +5,7 @@ class AppConstants {
   static const Color pastelPink = Color.fromARGB(255, 253, 132, 174);
   static const Color pastelGreen = Color(0xFFC8E6C9);
   static const Color pastelBlue = Color(0xFFBBDEFB);
-  
+
   static const Color primaryColor = pastelPink;
   static const Color backgroundColor = Color(0xFFFAFAFA);
   static const Color textColor = Color(0xFF333333);

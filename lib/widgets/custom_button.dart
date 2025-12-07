@@ -24,7 +24,8 @@ class CustomButton extends StatelessWidget {
       width: width ?? double.infinity,
       height: height,
       child: ElevatedButton(
-        style: style ??
+        style:
+            style ??
             ElevatedButton.styleFrom(
               backgroundColor: const Color.fromARGB(255, 253, 132, 174),
               foregroundColor: Colors.white,

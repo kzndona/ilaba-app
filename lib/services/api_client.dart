@@ -4,7 +4,9 @@ abstract class ApiClient {
   Future<Map<String, dynamic>> put(String endpoint, Map<String, dynamic> body);
   Future<void> delete(String endpoint);
   Future<Map<String, dynamic>> patch(
-      String endpoint, Map<String, dynamic> body);
+    String endpoint,
+    Map<String, dynamic> body,
+  );
 }
 
 class ApiClientImpl implements ApiClient {
@@ -23,13 +25,17 @@ class ApiClientImpl implements ApiClient {
 
   @override
   Future<Map<String, dynamic>> post(
-      String endpoint, Map<String, dynamic> body) async {
+    String endpoint,
+    Map<String, dynamic> body,
+  ) async {
     throw UnimplementedError('post() not implemented');
   }
 
   @override
   Future<Map<String, dynamic>> put(
-      String endpoint, Map<String, dynamic> body) async {
+    String endpoint,
+    Map<String, dynamic> body,
+  ) async {
     throw UnimplementedError('put() not implemented');
   }
 
@@ -40,7 +46,9 @@ class ApiClientImpl implements ApiClient {
 
   @override
   Future<Map<String, dynamic>> patch(
-      String endpoint, Map<String, dynamic> body) async {
+    String endpoint,
+    Map<String, dynamic> body,
+  ) async {
     throw UnimplementedError('patch() not implemented');
   }
 }

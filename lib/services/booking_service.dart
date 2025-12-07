@@ -34,7 +34,10 @@ class BookingServiceImpl implements BookingService {
   }
 
   @override
-  Future<List<Booking>> getBookingsByStatus(String userId, String status) async {
+  Future<List<Booking>> getBookingsByStatus(
+    String userId,
+    String status,
+  ) async {
     throw UnimplementedError('getBookingsByStatus() not implemented');
   }
 
