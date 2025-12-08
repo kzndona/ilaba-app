@@ -43,7 +43,7 @@ dependencies:
   dio: ^5.3.0
 
   # Supabase & Authentication
-  supabase_flutter: ^1.10.0
+  supabase_flutter: ^2.8.0
 
   # Environment variables
   flutter_dotenv: ^5.1.0
@@ -85,6 +85,7 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   assets:
+    - .env
     - assets/images/banner.jpg
     - assets/images/maps.jpg
 

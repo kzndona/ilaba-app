@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:ilaba/providers/auth_provider.dart';
 import 'package:ilaba/screens/booking_map.dart';
 import 'package:ilaba/screens/faq_screen.dart';
 import 'package:ilaba/screens/loyalty_screen.dart';
@@ -12,42 +14,57 @@ class HomeMenuScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () {
-              Scaffold.of(context).openDrawer();
-            },
-          ),
-        ),
-        title: const Text('iLABa Home'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-              // TODO: Open Notifications
-            },
-          ),
-        ],
-      ),
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, _) {
+        // Guard: Redirect to login if not authenticated
+        if (!authProvider.isLoggedIn) {
+          // Navigate to login and remove home screen from stack
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).pushReplacementNamed('/login');
+          });
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
 
-      drawer: const MenuSideScreen(),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Container(
-              height: 180,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                image: const DecorationImage(
-                  image: AssetImage('assets/images/banner.jpg'),
-                  fit: BoxFit.cover,
-                ),
+        return Scaffold(
+          appBar: AppBar(
+            leading: Builder(
+              builder: (context) => IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () {
+                  Scaffold.of(context).openDrawer();
+                },
               ),
             ),
+            title: const Text('iLABa Home'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.notifications),
+                onPressed: () {
+                  // TODO: Open Notifications
+                },
+              ),
+            ],
+          ),
+
+          drawer: const MenuSideScreen(),
+          body: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                Container(
+                  height: 180,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    image: const DecorationImage(
+                      image: AssetImage('assets/images/banner.jpg'),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
             const SizedBox(height: 20),
             // Menu Cards
             Expanded(
@@ -145,6 +162,8 @@ class HomeMenuScreen extends StatelessWidget {
           ],
         ),
       ),
+        );
+      },
     );
   }
 }
