@@ -622,6 +622,7 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 
   Widget _buildBasketsSection(List baskets, Color color) {
+    // ignore: unused_element
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -758,18 +759,19 @@ class _OrdersScreenState extends State<OrdersScreen>
                           ],
                         ),
                       );
-                    }).toList(),
+                    }),
                   ],
                 ],
               ),
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
 
   Widget _buildPaymentsSection(List payments, Color color, List baskets) {
+    // ignore: unused_element
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -872,7 +874,7 @@ class _OrdersScreenState extends State<OrdersScreen>
               ),
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -1145,7 +1147,7 @@ class _OrderHistoryDetailsPage extends StatelessWidget {
                     ),
                   ),
                 );
-              }).toList(),
+              }),
               const SizedBox(height: 28),
             ],
 
@@ -1360,13 +1362,13 @@ class _OrderHistoryDetailsPage extends StatelessWidget {
                                 ),
                               ),
                             );
-                          }).toList(),
+                          }),
                         ],
                       ],
                     ),
                   ),
                 );
-              }).toList(),
+              }),
               const SizedBox(height: 28),
             ],
 
@@ -1420,7 +1422,7 @@ class _OrderHistoryDetailsPage extends StatelessWidget {
                     ],
                   ),
                 );
-              }).toList(),
+              }),
               const SizedBox(height: 28),
             ],
 
@@ -1475,7 +1477,7 @@ class _OrderHistoryDetailsPage extends StatelessWidget {
                     ],
                   ),
                 );
-              }).toList(),
+              }),
               const SizedBox(height: 28),
             ],
 
@@ -1940,6 +1942,7 @@ class _OrderHistoryDetailsPage extends StatelessWidget {
   }
 
   Widget _buildJsonViewer(BuildContext context, Map<String, dynamic> data) {
+    // ignore: unused_element
     final jsonString = _formatJson(data);
 
     return Container(

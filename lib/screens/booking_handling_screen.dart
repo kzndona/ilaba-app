@@ -4,7 +4,7 @@ import 'package:ilaba/providers/booking_state_provider.dart';
 import 'package:ilaba/widgets/custom_text_field.dart';
 
 class BookingHandlingScreen extends StatefulWidget {
-  const BookingHandlingScreen({Key? key}) : super(key: key);
+  const BookingHandlingScreen({super.key});
 
   @override
   State<BookingHandlingScreen> createState() => _BookingHandlingScreenState();
@@ -213,7 +213,7 @@ class _BookingHandlingScreenState extends State<BookingHandlingScreen> {
                                   top: 4,
                                 ),
                                 child: Text(
-                                  'Handling Fee: ₱${state.handling.deliveryFee.toStringAsFixed(2)}',
+                                  'Delivery Fee: ₱50.00',
                                   style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,

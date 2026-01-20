@@ -469,7 +469,7 @@ class _OrderStatusScreenState extends State<OrderStatusScreen>
                                                         children: [
                                                           Expanded(
                                                             child: Text(
-                                                              '${serviceName}${isPremium ? ' (Premium)' : ''}',
+                                                              '$serviceName${isPremium ? ' (Premium)' : ''}',
                                                               style: Theme.of(context)
                                                                   .textTheme
                                                                   .bodySmall

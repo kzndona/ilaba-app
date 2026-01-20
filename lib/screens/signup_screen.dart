@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:ilaba/services/registration_service.dart';
 import 'package:ilaba/screens/registration_confirmation_screen.dart';

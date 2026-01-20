@@ -198,7 +198,7 @@ class HelpCenterScreen extends StatelessWidget {
                   ],
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),

@@ -7,30 +7,41 @@ import 'package:ilaba/services/pos_service.dart';
 class SupabasePOSService implements POSService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  /// Fetch all products from the products table
-  /// Maps database columns: id, item_name, unit, unit_price
+  /// Fetch all active products from the products table
+  /// Maps database columns: id, item_name, quantity, unit_price, reorder_level, unit_cost, is_active, image_url
   @override
   Future<List<Product>> getProducts() async {
     try {
+      debugPrint('📦 Fetching active products from Supabase...');
+      
       final response = await _supabase
           .from('products')
-          .select('id, item_name, unit, unit_price')
+          .select('id, item_name, quantity, unit_price, reorder_level, unit_cost, is_active, image_url, created_at, last_updated')
+          .eq('is_active', true)
           .order('item_name');
 
+      debugPrint('✅ Products response: ${response.length} products found');
+      
       final products = (response as List)
-          .map((product) => Product.fromJson(product))
+          .map((product) {
+            debugPrint('📦 Product: ${product['item_name']} - Active: ${product['is_active']}, Qty: ${product['quantity']}, Image: ${product['image_url']}');
+            return Product.fromJson(product);
+          })
           .toList();
 
       return products;
     } catch (e) {
+      debugPrint('❌ Failed to fetch products: $e');
       throw Exception('Failed to fetch products: $e');
     }
   }
 
-  /// Fetch all laundry services (wash, dry, iron, etc.)
+  /// Fetch all active laundry services (wash, dry, iron, etc.)
   @override
   Future<List<LaundryService>> getServices() async {
     try {
+      debugPrint('🧹 Fetching active laundry services from Supabase...');
+      
       final response = await _supabase
           .from('services')
           .select(
@@ -39,12 +50,24 @@ class SupabasePOSService implements POSService {
           .eq('is_active', true)
           .order('service_type');
 
+      debugPrint('✅ Services response: ${response.length} services found');
+      
       final services = (response as List)
-          .map((service) => LaundryService.fromJson(service))
+          .map((service) {
+            debugPrint('🧹 Service: ${service['name']} (${service['service_type']}) - Active: ${service['is_active']}, Rate: ${service['rate_per_kg']}/kg');
+            return LaundryService.fromJson(service);
+          })
           .toList();
+
+      // Verify all returned services are active
+      final inactiveCount = services.where((s) => !s.isActive).length;
+      if (inactiveCount > 0) {
+        debugPrint('⚠️ WARNING: $inactiveCount inactive services were returned despite filter!');
+      }
 
       return services;
     } catch (e) {
+      debugPrint('❌ Failed to fetch services: $e');
       throw Exception('Failed to fetch services: $e');
     }
   }

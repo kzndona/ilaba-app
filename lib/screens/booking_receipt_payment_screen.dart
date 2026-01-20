@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ilaba/providers/booking_state_provider.dart';
+import 'package:ilaba/providers/auth_provider.dart';
+import 'package:ilaba/services/order_payload_builder.dart';
+import 'package:ilaba/services/order_creation_service.dart';
+import 'package:ilaba/models/order_models.dart';
+import 'package:ilaba/screens/order_success_screen.dart';
 
 class BookingReceiptPaymentScreen extends StatefulWidget {
-  const BookingReceiptPaymentScreen({Key? key}) : super(key: key);
+  const BookingReceiptPaymentScreen({super.key});
 
   @override
   State<BookingReceiptPaymentScreen> createState() =>
@@ -12,20 +17,15 @@ class BookingReceiptPaymentScreen extends StatefulWidget {
 
 class _BookingReceiptPaymentScreenState
     extends State<BookingReceiptPaymentScreen> {
-  final _gcashNumberController = TextEditingController();
-  String? _proofImagePath;
-
-  @override
-  void dispose() {
-    _gcashNumberController.dispose();
-    super.dispose();
-  }
+  bool _gcashPaymentConfirmed = false;
+  bool _isSubmitting = false;
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<BookingStateNotifier>(
-      builder: (context, state, _) {
-        final receipt = state.computeReceipt();
+    return Consumer2<BookingStateNotifier, AuthProvider>(
+      builder: (context, bookingState, authState, _) {
+        final receipt = bookingState.computeReceipt();
+        final colorScheme = Theme.of(context).colorScheme;
 
         return SingleChildScrollView(
           child: Padding(
@@ -39,7 +39,7 @@ class _BookingReceiptPaymentScreenState
                 ),
                 const SizedBox(height: 16),
 
-                // Receipt details
+                // Receipt Card
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -47,9 +47,9 @@ class _BookingReceiptPaymentScreenState
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const Text(
-                          'ORDER RECEIPT',
+                          'ORDER SUMMARY',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
                           textAlign: TextAlign.center,
@@ -57,22 +57,23 @@ class _BookingReceiptPaymentScreenState
                         const Divider(),
                         const SizedBox(height: 12),
 
-                        // Products section
+                        // Products
                         if (receipt.productLines.isNotEmpty) ...[
                           const Text(
                             'Products:',
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          const SizedBox(height: 8),
                           ...receipt.productLines.map((line) {
                             return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 4),
                               child: Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
-                                    child: Text('${line.name} x${line.qty}'),
+                                    child: Text(
+                                        '${line.name} x${line.qty}'),
                                   ),
                                   Text(
                                     '₱${line.lineTotal.toStringAsFixed(2)}',
@@ -83,15 +84,13 @@ class _BookingReceiptPaymentScreenState
                                 ],
                               ),
                             );
-                          }).toList(),
-                          const SizedBox(height: 12),
+                          }),
+                          const SizedBox(height: 8),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                'Product Subtotal:',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
+                              const Text('Subtotal:'),
                               Text(
                                 '₱${receipt.productSubtotal.toStringAsFixed(2)}',
                               ),
@@ -99,32 +98,31 @@ class _BookingReceiptPaymentScreenState
                           ),
                           const SizedBox(height: 12),
                           const Divider(),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
                         ],
 
-                        // Baskets section
+                        // Services
                         if (receipt.basketLines.isNotEmpty) ...[
                           const Text(
                             'Laundry Services:',
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          const SizedBox(height: 8),
                           ...receipt.basketLines.map((line) {
                             return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 8),
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
                                 children: [
                                   Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Expanded(
-                                        child: Text(
-                                          '${line.name} (${line.weightKg}kg)',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                      Text(
+                                        '${line.name} (${line.weightKg}kg)',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                       Text(
@@ -144,122 +142,54 @@ class _BookingReceiptPaymentScreenState
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        if (line.breakdown['wash']! > 0)
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                'Wash${line.premiumFlags['wash']! ? ' (Premium)' : ''}',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                              Text(
-                                                '₱${line.breakdown['wash']!.toStringAsFixed(2)}',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
+                                        if ((line.breakdown['wash'] ?? 0) > 0)
+                                          Text(
+                                            'Wash: ₱${(line.breakdown['wash'] ?? 0).toStringAsFixed(2)}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                            ),
                                           ),
-                                        if (line.breakdown['dry']! > 0)
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                'Dry${line.premiumFlags['dry']! ? ' (Premium)' : ''}',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                              Text(
-                                                '₱${line.breakdown['dry']!.toStringAsFixed(2)}',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
+                                        if ((line.breakdown['dry'] ?? 0) > 0)
+                                          Text(
+                                            'Dry: ₱${(line.breakdown['dry'] ?? 0).toStringAsFixed(2)}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                            ),
                                           ),
-                                        if (line.breakdown['spin']! > 0)
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              const Text(
-                                                'Spin',
-                                                style: TextStyle(fontSize: 12),
-                                              ),
-                                              Text(
-                                                '₱${line.breakdown['spin']!.toStringAsFixed(2)}',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
+                                        if ((line.breakdown['spin'] ?? 0) > 0)
+                                          Text(
+                                            'Spin: ₱${(line.breakdown['spin'] ?? 0).toStringAsFixed(2)}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                            ),
                                           ),
-                                        if (line.breakdown['iron']! > 0)
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              const Text(
-                                                'Iron',
-                                                style: TextStyle(fontSize: 12),
-                                              ),
-                                              Text(
-                                                '₱${line.breakdown['iron']!.toStringAsFixed(2)}',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
+                                        if ((line.breakdown['iron'] ?? 0) > 0)
+                                          Text(
+                                            'Iron: ₱${(line.breakdown['iron'] ?? 0).toStringAsFixed(2)}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                            ),
                                           ),
-                                        if (line.breakdown['fold']! > 0)
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              const Text(
-                                                'Fold',
-                                                style: TextStyle(fontSize: 12),
-                                              ),
-                                              Text(
-                                                '₱${line.breakdown['fold']!.toStringAsFixed(2)}',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
+                                        if ((line.breakdown['fold'] ?? 0) > 0)
+                                          Text(
+                                            'Fold: ₱${(line.breakdown['fold'] ?? 0).toStringAsFixed(2)}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                            ),
                                           ),
                                       ],
                                     ),
                                   ),
-                                  if (line.notes.isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 4),
-                                      child: Text(
-                                        'Notes: ${line.notes}',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.grey,
-                                          fontStyle: FontStyle.italic,
-                                        ),
-                                      ),
-                                    ),
                                 ],
                               ),
                             );
-                          }).toList(),
-                          const SizedBox(height: 12),
+                          }),
+                          const SizedBox(height: 8),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                'Laundry Subtotal:',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
+                              const Text('Subtotal:'),
                               Text(
                                 '₱${receipt.basketSubtotal.toStringAsFixed(2)}',
                               ),
@@ -267,23 +197,26 @@ class _BookingReceiptPaymentScreenState
                           ),
                           const SizedBox(height: 12),
                           const Divider(),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
                         ],
 
-                        // Totals
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Subtotal:'),
-                            Text(
-                              '₱${(receipt.productSubtotal + receipt.basketSubtotal).toStringAsFixed(2)}',
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        if (receipt.handlingFee > 0)
+                        // Fees
+                        if (receipt.serviceFee > 0)
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Service Fee:'),
+                              Text(
+                                '₱${receipt.serviceFee.toStringAsFixed(2)}',
+                              ),
+                            ],
+                          ),
+                        if (receipt.handlingFee > 0) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
                             children: [
                               const Text('Delivery Fee:'),
                               Text(
@@ -291,39 +224,45 @@ class _BookingReceiptPaymentScreenState
                               ),
                             ],
                           ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'TAX (included):',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                            Text(
-                              '₱${receipt.taxIncluded.toStringAsFixed(2)}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ],
-                        ),
+                        ],
+
+                        if (receipt.serviceFee > 0 ||
+                            receipt.handlingFee > 0) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Tax (12%):'),
+                              Text(
+                                '₱${receipt.tax.toStringAsFixed(2)}',
+                              ),
+                            ],
+                          ),
+                        ],
+
                         const SizedBox(height: 12),
-                        const Divider(thickness: 2),
-                        const SizedBox(height: 8),
+                        const Divider(),
+                        const SizedBox(height: 12),
+
+                        // Total
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceBetween,
                           children: [
                             const Text(
                               'TOTAL:',
                               style: TextStyle(
-                                fontSize: 18,
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             Text(
                               '₱${receipt.total.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontSize: 18,
+                              style: TextStyle(
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.green,
+                                color: colorScheme.primary,
                               ),
                             ),
                           ],
@@ -332,124 +271,117 @@ class _BookingReceiptPaymentScreenState
                     ),
                   ),
                 ),
+                const SizedBox(height: 24),
 
-                const SizedBox(height: 16),
-
-                // Payment method - GCash only
-                const Text(
-                  'Payment Method',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
+                // GCash Payment Section
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey[300]!),
-                    borderRadius: BorderRadius.circular(8),
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(Icons.account_balance_wallet, color: Colors.blue),
-                      SizedBox(width: 12),
                       Text(
-                        'GCash',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                        'GCash Payment',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Please complete the following steps:',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildStepItem(
+                              '1',
+                              'Open your GCash app',
+                              colorScheme,
+                            ),
+                            const SizedBox(height: 12),
+                            _buildStepItem(
+                              '2',
+                              'Send ₱${receipt.total.toStringAsFixed(2)} to the store',
+                              colorScheme,
+                            ),
+                            const SizedBox(height: 12),
+                            _buildStepItem(
+                              '3',
+                              'Take a screenshot of the confirmation',
+                              colorScheme,
+                            ),
+                            const SizedBox(height: 12),
+                            _buildStepItem(
+                              '4',
+                              'Check the box below to confirm',
+                              colorScheme,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      CheckboxListTile(
+                        value: _gcashPaymentConfirmed,
+                        onChanged: (bool? value) {
+                          setState(() {
+                            _gcashPaymentConfirmed = value ?? false;
+                          });
+                        },
+                        title: const Text(
+                          'I have completed the GCash payment',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity:
+                            ListTileControlAffinity.leading,
+                        dense: true,
+                        fillColor: WidgetStatePropertyAll(
+                          colorScheme.onPrimaryContainer,
                         ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 24),
 
-                const SizedBox(height: 16),
-
-                // GCash Number
-                const Text(
-                  'GCash Number: 09171234567',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Upload proof photo
-                const Text(
-                  'Upload Proof of Payment',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () {
-                    // TODO: Implement image picker
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Image picker coming soon')),
-                    );
-                  },
-                  child: Container(
-                    height: 120,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(8),
-                      color: Colors.grey[50],
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.cloud_upload_outlined,
-                            size: 40,
-                            color: Colors.grey[400],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _proofImagePath == null
-                                ? 'Tap to upload photo'
-                                : 'Photo selected',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Confirm button
+                // Submit Button
                 ElevatedButton(
-                  onPressed: state.isProcessing
-                      ? null
-                      : () {
-                          _showConfirmDialog(context, state, receipt);
-                        },
+                  onPressed: (_gcashPaymentConfirmed && !_isSubmitting)
+                      ? () => _submitOrder(
+                            context,
+                            bookingState,
+                            authState,
+                            receipt,
+                          )
+                      : null,
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: state.isProcessing
+                  child: _isSubmitting
                       ? const SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
                           ),
                         )
-                      : const Text(
-                          'Place Order',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
+                      : const Text('Submit Order'),
                 ),
+                const SizedBox(height: 12),
               ],
             ),
           ),
@@ -458,124 +390,179 @@ class _BookingReceiptPaymentScreenState
     );
   }
 
-  void _showConfirmDialog(
-    BuildContext context,
-    BookingStateNotifier state,
-    ComputedReceipt receipt,
+  Widget _buildStepItem(
+    String number,
+    String text,
+    ColorScheme colorScheme,
   ) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Confirm Order'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Total: ₱${receipt.total.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text('Payment: ${state.payment.method.toUpperCase()}'),
-                    if (state.payment.referenceNumber != null)
-                      Text('Reference: ${state.payment.referenceNumber}'),
-                  ],
-                ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: colorScheme.primary,
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text(
+              number,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onPrimary,
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: state.isProcessing
-                      ? null
-                      : () async {
-                          try {
-                            final orderId = await state.saveOrder();
-                            if (mounted) {
-                              Navigator.pop(context);
-                              if (orderId != null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      '✅ Order placed! ID: $orderId',
-                                    ),
-                                    backgroundColor: Colors.green,
-                                    duration: const Duration(seconds: 5),
-                                  ),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      '❌ Failed to place order - see console for details',
-                                    ),
-                                    backgroundColor: Colors.red,
-                                    duration: const Duration(seconds: 5),
-                                  ),
-                                );
-                              }
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              Navigator.pop(context);
-                              _showErrorDialog(context, e.toString());
-                            }
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                  ),
-                  child: state.isProcessing
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                          ),
-                        )
-                      : const Text('Confirm'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 13),
+          ),
+        ),
+      ],
     );
   }
 
-  void _showErrorDialog(BuildContext context, String error) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('❌ Error'),
-          content: SingleChildScrollView(
-            child: SelectableText(
-              error,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+  Future<void> _submitOrder(
+    BuildContext context,
+    BookingStateNotifier bookingState,
+    AuthProvider authState,
+    ReceiptSummary receipt,
+  ) async {
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      if (authState.currentUser == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final user = authState.currentUser!;
+
+      // Build breakdown and handling using the builder service
+      final breakdown = OrderPayloadBuilder.buildBreakdown(
+        orderProductCounts: bookingState.orderProductCounts,
+        products: bookingState.products,
+        baskets: bookingState.baskets,
+        services: bookingState.services,
+        includeDelivery: bookingState.handling.deliver,
+      );
+
+      final handling = OrderPayloadBuilder.buildHandling(
+        pickupEnabled: bookingState.handling.pickup,
+        pickupAddress: bookingState.handling.pickupAddress,
+        deliveryEnabled: bookingState.handling.deliver,
+        deliveryAddress: bookingState.handling.deliveryAddress,
+        instructions: bookingState.handling.instructions,
+      );
+
+      // Create order payload
+      final orderPayload = CreateOrderPayload(
+        source: 'app',
+        customerId: user.id,
+        breakdown: breakdown,
+        handling: handling,
+        totalAmount: receipt.total,
+        cashierId: null,
+        status: 'pending',
+        orderNote: bookingState.handling.instructions.isNotEmpty
+            ? bookingState.handling.instructions
+            : null,
+      );
+
+      // Create request
+      final request = CreateOrderRequest(
+        customer: CustomerData(
+          id: user.id,
+          phoneNumber: user.phoneNumber,
+          emailAddress: user.emailAddress ?? '',
+        ),
+        orderPayload: orderPayload,
+      );
+
+      // Submit order
+      final orderService = OrderCreationServiceImpl();
+      final response = await orderService.createOrder(request);
+
+      if (!mounted) return;
+
+      if (response.success) {
+        // Reset booking state
+        bookingState.resetForNewOrder();
+
+        // Navigate to success screen
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => OrderSuccessScreen(
+              orderId: response.orderId,
+              totalAmount: receipt.total,
+              customerName: '${user.firstName} ${user.lastName}',
+              customerEmail: user.emailAddress,
             ),
           ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
         );
-      },
+      } else {
+        _showErrorDialog(
+          response.error ?? 'Failed to create order',
+          response.insufficientItems,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorDialog(
+          e.toString().replaceAll('Exception: ', ''),
+          null,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  void _showErrorDialog(String message, List<Map<String, dynamic>>? insufficientItems) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Order Submission Failed'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(message),
+            if (insufficientItems != null && insufficientItems.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              const Text(
+                'Unavailable Items:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              ...insufficientItems.map((item) {
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    '${item['productName']} - Requested: ${item['requested']}, Available: ${item['available']}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                );
+              }),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 }

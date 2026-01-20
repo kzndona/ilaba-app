@@ -10,7 +10,7 @@ import 'package:ilaba/screens/booking_receipt_payment_screen.dart';
 
 /// Main booking flow screen with sequential navigation
 class BookingFlowScreen extends StatefulWidget {
-  const BookingFlowScreen({Key? key}) : super(key: key);
+  const BookingFlowScreen({super.key});
 
   @override
   State<BookingFlowScreen> createState() => _BookingFlowScreenState();
@@ -94,11 +94,10 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
               (b) => b.washCount > 0 || b.dryCount > 0 || b.iron || b.fold,
             );
       case BookingPane.products:
-        return state.orderProductCounts.isNotEmpty;
+        // Allow proceeding to payment even if no products are added
+        return true;
       case BookingPane.receipt:
         return true;
-      default:
-        return false;
     }
   }
 

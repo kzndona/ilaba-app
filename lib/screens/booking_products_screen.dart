@@ -4,7 +4,7 @@ import 'package:ilaba/providers/booking_state_provider.dart';
 import 'package:ilaba/widgets/custom_text_field.dart';
 
 class BookingProductsScreen extends StatefulWidget {
-  const BookingProductsScreen({Key? key}) : super(key: key);
+  const BookingProductsScreen({super.key});
 
   @override
   State<BookingProductsScreen> createState() => _BookingProductsScreenState();
@@ -106,6 +106,63 @@ class _BookingProductsScreenState extends State<BookingProductsScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // Product image
+                              if (product.imageUrl != null && product.imageUrl!.isNotEmpty)
+                                Container(
+                                  width: double.infinity,
+                                  height: 150,
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    color: Colors.grey[200],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      product.imageUrl!,
+                                      fit: BoxFit.cover,
+                                      loadingBuilder: (context, child, loadingProgress) {
+                                        if (loadingProgress == null) {
+                                          return child;
+                                        }
+                                        return Center(
+                                          child: CircularProgressIndicator(
+                                            value: loadingProgress.expectedTotalBytes != null
+                                                ? loadingProgress.cumulativeBytesLoaded /
+                                                    loadingProgress.expectedTotalBytes!
+                                                : null,
+                                            strokeWidth: 2,
+                                          ),
+                                        );
+                                      },
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Container(
+                                          color: Colors.grey[200],
+                                          child: Center(
+                                            child: Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.image_not_supported,
+                                                  color: Colors.grey[400],
+                                                  size: 40,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  'Failed to load image',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: Colors.grey[500],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
                               // Product name and price
                               Row(
                                 mainAxisAlignment:
@@ -265,7 +322,7 @@ class _BookingProductsScreenState extends State<BookingProductsScreen> {
                               ],
                             ),
                           );
-                        }).toList(),
+                        }),
                         const Divider(height: 12),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,

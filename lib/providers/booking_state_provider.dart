@@ -4,49 +4,18 @@ import 'package:ilaba/services/pos_service.dart';
 
 /// Booking state constants
 const double TAX_RATE = 0.12; // 12% VAT
-const double SERVICE_FEE_PER_BASKET = 10;
-const double DEFAULT_DELIVERY_FEE = 50;
+const double SERVICE_FEE_PER_BASKET = 40; // PHP 40
+const double DEFAULT_DELIVERY_FEE = 50; // PHP 50
 
 /// Enum for active pane in booking flow
-enum BookingPane { customer, handling, products, basket, receipt }
+enum BookingPane { handling, basket, products, receipt }
 
-/// Payment state
-class PaymentState {
-  final String method; // 'cash' or 'gcash'
-  final double? amount;
-  final double? amountPaid;
-  final String? referenceNumber;
-
-  PaymentState({
-    this.method = 'cash',
-    this.amount,
-    this.amountPaid,
-    this.referenceNumber,
-  });
-
-  PaymentState copyWith({
-    String? method,
-    double? amount,
-    double? amountPaid,
-    String? referenceNumber,
-  }) {
-    return PaymentState(
-      method: method ?? this.method,
-      amount: amount ?? this.amount,
-      amountPaid: amountPaid ?? this.amountPaid,
-      referenceNumber: referenceNumber ?? this.referenceNumber,
-    );
-  }
-}
-
-/// Handling/delivery state
+/// Simplified handling state for mobile app
 class HandlingState {
   final bool pickup;
   final bool deliver;
   final String pickupAddress;
   final String deliveryAddress;
-  final double deliveryFee;
-  final String courierRef;
   final String instructions;
 
   HandlingState({
@@ -54,8 +23,6 @@ class HandlingState {
     this.deliver = false,
     this.pickupAddress = '',
     this.deliveryAddress = '',
-    this.deliveryFee = DEFAULT_DELIVERY_FEE,
-    this.courierRef = '',
     this.instructions = '',
   });
 
@@ -64,8 +31,6 @@ class HandlingState {
     bool? deliver,
     String? pickupAddress,
     String? deliveryAddress,
-    double? deliveryFee,
-    String? courierRef,
     String? instructions,
   }) {
     return HandlingState(
@@ -73,44 +38,42 @@ class HandlingState {
       deliver: deliver ?? this.deliver,
       pickupAddress: pickupAddress ?? this.pickupAddress,
       deliveryAddress: deliveryAddress ?? this.deliveryAddress,
-      deliveryFee: deliveryFee ?? this.deliveryFee,
-      courierRef: courierRef ?? this.courierRef,
       instructions: instructions ?? this.instructions,
     );
   }
 }
 
-/// Complete receipt/computation result
-class ComputedReceipt {
-  final List<ReceiptProductLine> productLines;
-  final List<ReceiptBasketLine> basketLines;
+/// Simplified receipt for display
+class ReceiptSummary {
   final double productSubtotal;
   final double basketSubtotal;
+  final double serviceFee;
   final double handlingFee;
-  final double taxIncluded;
+  final double tax;
   final double total;
+  final List<ReceiptProductLine> productLines;
+  final List<ReceiptBasketLine> basketLines;
 
-  ComputedReceipt({
-    required this.productLines,
-    required this.basketLines,
+  ReceiptSummary({
     required this.productSubtotal,
     required this.basketSubtotal,
+    required this.serviceFee,
     required this.handlingFee,
-    required this.taxIncluded,
+    required this.tax,
     required this.total,
+    required this.productLines,
+    required this.basketLines,
   });
 }
 
-/// Main booking state provider
+/// Main booking state provider - REFACTORED FOR WEB API COMPATIBILITY
 class BookingStateNotifier extends ChangeNotifier {
   // --- Products ---
   List<Product> products = [];
   bool loadingProducts = true;
 
-  // --- Customer ---
+  // --- Customer (pre-authenticated from auth provider) ---
   Customer? customer;
-  String customerQuery = '';
-  List<Customer> customerSuggestions = [];
 
   // --- Services ---
   List<LaundryService> services = [];
@@ -123,14 +86,11 @@ class BookingStateNotifier extends ChangeNotifier {
   Map<String, int> orderProductCounts = {};
 
   // --- UI State ---
-  BookingPane activePane = BookingPane.customer;
   HandlingState handling = HandlingState();
-  PaymentState payment = PaymentState();
-  bool showConfirm = false;
   bool isProcessing = false;
 
   // --- Services ---
-  late POSService _posService;
+  late final POSService _posService;
 
   BookingStateNotifier(this._posService) {
     _initialize();
@@ -165,10 +125,19 @@ class BookingStateNotifier extends ChangeNotifier {
   /// Load laundry services from API
   Future<void> loadServices() async {
     try {
+      debugPrint('🧹 BookingStateNotifier: Loading laundry services...');
       services = await _posService.getServices();
+      debugPrint(
+        '✅ BookingStateNotifier: Loaded ${services.length} active services',
+      );
+      for (var service in services) {
+        debugPrint(
+          '   - ${service.name} (${service.serviceType}): ₱${service.ratePerKg}/kg, Active: ${service.isActive}',
+        );
+      }
       notifyListeners();
     } catch (e) {
-      debugPrint('Service load error: $e');
+      debugPrint('❌ Service load error: $e');
       services = [];
     }
   }
@@ -178,38 +147,33 @@ class BookingStateNotifier extends ChangeNotifier {
     loadingProducts = true;
     notifyListeners();
     try {
+      debugPrint('📦 BookingStateNotifier: Loading products...');
       products = await _posService.getProducts();
+      debugPrint(
+        '✅ BookingStateNotifier: Loaded ${products.length} active products',
+      );
+      for (var product in products) {
+        debugPrint(
+          '   - ${product.itemName}: ₱${product.unitPrice}, Qty: ${product.quantity}, Active: ${product.isActive}',
+        );
+      }
     } catch (e) {
-      debugPrint('Failed to load products: $e');
+      debugPrint('❌ Failed to load products: $e');
       products = [];
     }
     loadingProducts = false;
     notifyListeners();
   }
 
-  /// Search customers
-  Future<void> searchCustomers(String query) async {
-    customerQuery = query;
-    if (query.isEmpty) {
-      customerSuggestions = [];
-      notifyListeners();
-      return;
-    }
-
-    try {
-      customerSuggestions = await _posService.searchCustomers(query);
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Customer search error: $e');
-      customerSuggestions = [];
-    }
-  }
-
-  /// Select a customer
+  /// Set customer (called from auth context)
   void setCustomer(Customer? cust) {
     customer = cust;
     notifyListeners();
   }
+
+  // ============================================================================
+  // PRODUCT MANAGEMENT
+  // ============================================================================
 
   /// Add product to order
   void addProduct(String productId) {
@@ -227,6 +191,20 @@ class BookingStateNotifier extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+  /// Set product quantity
+  void setProductQuantity(String productId, int quantity) {
+    if (quantity <= 0) {
+      orderProductCounts.remove(productId);
+    } else {
+      orderProductCounts[productId] = quantity;
+    }
+    notifyListeners();
+  }
+
+  // ============================================================================
+  // BASKET MANAGEMENT
+  // ============================================================================
 
   /// Add a new basket
   void addBasket() {
@@ -252,6 +230,181 @@ class BookingStateNotifier extends ChangeNotifier {
     }
   }
 
+  /// Set active basket by index
+  void setActiveBasketIndex(int index) {
+    if (index >= 0 && index < baskets.length) {
+      activeBasketIndex = index;
+      notifyListeners();
+    }
+  }
+
+  // ============================================================================
+  // HANDLING MANAGEMENT
+  // ============================================================================
+
+  /// Update handling state
+  void setHandling(HandlingState newHandling) {
+    handling = newHandling;
+    notifyListeners();
+  }
+
+  // ============================================================================
+  // VALIDATION & CALCULATIONS
+  // ============================================================================
+
+  /// Check if handling is valid (at least one method selected with address)
+  bool isHandlingValid() {
+    final hasPickup = handling.pickup && handling.pickupAddress.isNotEmpty;
+    final hasDelivery = handling.deliver && handling.deliveryAddress.isNotEmpty;
+    return hasPickup || hasDelivery;
+  }
+
+  /// Check if at least one basket has services
+  bool hasActiveBaskets() {
+    return baskets.any(
+      (b) =>
+          b.weightKg > 0 &&
+          (b.washCount > 0 ||
+              b.dryCount > 0 ||
+              b.spinCount > 0 ||
+              b.iron ||
+              b.fold),
+    );
+  }
+
+  /// Check if there are any products selected
+  bool hasProducts() {
+    return orderProductCounts.isNotEmpty;
+  }
+
+  // ============================================================================
+  // RECEIPT COMPUTATION (FOR DISPLAY ONLY)
+  // ============================================================================
+
+  /// Compute receipt summary for display
+  ReceiptSummary computeReceipt() {
+    final productLines = <ReceiptProductLine>[];
+    double productSubtotal = 0;
+
+    for (final entry in orderProductCounts.entries) {
+      final product = products.firstWhere(
+        (p) => p.id == entry.key,
+        orElse: () => Product(id: entry.key, itemName: 'Unknown', unitPrice: 0),
+      );
+
+      final lineTotal = product.unitPrice * entry.value;
+      productSubtotal += lineTotal;
+
+      productLines.add(
+        ReceiptProductLine(
+          id: product.id,
+          name: product.itemName,
+          qty: entry.value,
+          price: product.unitPrice,
+          lineTotal: lineTotal,
+        ),
+      );
+    }
+
+    final basketLines = <ReceiptBasketLine>[];
+    double basketSubtotal = 0;
+    int estimatedDuration = 0;
+
+    for (final basket in baskets) {
+      if (basket.weightKg <= 0) continue;
+
+      final breakdown = <String, double>{};
+      double basketTotal = 0;
+
+      if (basket.washCount > 0) {
+        final service = getServiceByType('wash', basket.washPremium);
+        if (service != null) {
+          final amount = basket.weightKg * service.ratePerKg * basket.washCount;
+          breakdown['wash'] = amount;
+          basketTotal += amount;
+          estimatedDuration += service.baseDurationMinutes * basket.washCount;
+        }
+      }
+
+      if (basket.dryCount > 0) {
+        final service = getServiceByType('dry', basket.dryPremium);
+        if (service != null) {
+          final amount = basket.weightKg * service.ratePerKg * basket.dryCount;
+          breakdown['dry'] = amount;
+          basketTotal += amount;
+          estimatedDuration += service.baseDurationMinutes * basket.dryCount;
+        }
+      }
+
+      if (basket.spinCount > 0) {
+        final service = getServiceByType('spin', false);
+        if (service != null) {
+          final amount = basket.weightKg * service.ratePerKg * basket.spinCount;
+          breakdown['spin'] = amount;
+          basketTotal += amount;
+          estimatedDuration += service.baseDurationMinutes * basket.spinCount;
+        }
+      }
+
+      if (basket.iron) {
+        final service = getServiceByType('iron', false);
+        if (service != null) {
+          final amount = basket.weightKg * service.ratePerKg;
+          breakdown['iron'] = amount;
+          basketTotal += amount;
+          estimatedDuration += service.baseDurationMinutes;
+        }
+      }
+
+      if (basket.fold) {
+        final service = getServiceByType('fold', false);
+        if (service != null) {
+          final amount = basket.weightKg * service.ratePerKg;
+          breakdown['fold'] = amount;
+          basketTotal += amount;
+          estimatedDuration += service.baseDurationMinutes;
+        }
+      }
+
+      if (basketTotal > 0) {
+        basketSubtotal += basketTotal;
+        basketLines.add(
+          ReceiptBasketLine(
+            id: basket.id,
+            name: basket.name,
+            weightKg: basket.weightKg,
+            breakdown: breakdown,
+            premiumFlags: {
+              'wash': basket.washPremium,
+              'dry': basket.dryPremium,
+            },
+            notes: basket.notes,
+            total: basketTotal,
+            estimatedDurationMinutes: estimatedDuration,
+          ),
+        );
+      }
+    }
+
+    final serviceFee = basketLines.isNotEmpty ? SERVICE_FEE_PER_BASKET : 0;
+    final handlingFee = handling.deliver ? DEFAULT_DELIVERY_FEE : 0;
+    final subtotalBeforeTax =
+        productSubtotal + basketSubtotal + serviceFee + handlingFee;
+    final tax = subtotalBeforeTax * (TAX_RATE / (1 + TAX_RATE));
+    final total = subtotalBeforeTax;
+
+    return ReceiptSummary(
+      productSubtotal: productSubtotal,
+      basketSubtotal: basketSubtotal,
+      serviceFee: handling.deliver ? 40.0 : 0.0,
+      handlingFee: handling.deliver ? 50.0 : 0.0,
+      tax: tax,
+      total: total,
+      productLines: productLines,
+      basketLines: basketLines,
+    );
+  }
+
   /// Get service by type and premium flag
   LaundryService? getServiceByType(String type, bool premium) {
     final matches = services.where((s) => s.serviceType == type).toList();
@@ -270,374 +423,19 @@ class BookingStateNotifier extends ChangeNotifier {
     );
   }
 
-  /// Calculate basket duration in minutes
-  int calculateBasketDuration(Basket basket) {
-    int totalMinutes = 0;
+  // ============================================================================
+  // RESET FOR NEW ORDER
+  // ============================================================================
 
-    if (basket.washCount > 0) {
-      final service = getServiceByType('wash', basket.washPremium);
-      if (service != null) {
-        totalMinutes += service.baseDurationMinutes * basket.washCount;
-      }
-    }
-
-    if (basket.dryCount > 0) {
-      final service = getServiceByType('dry', basket.dryPremium);
-      if (service != null) {
-        totalMinutes += service.baseDurationMinutes * basket.dryCount;
-      }
-    }
-
-    if (basket.spinCount > 0) {
-      final service = getServiceByType('spin', false);
-      if (service != null) {
-        totalMinutes += service.baseDurationMinutes * basket.spinCount;
-      }
-    }
-
-    if (basket.iron) {
-      final service = getServiceByType('iron', false);
-      if (service != null) {
-        totalMinutes += service.baseDurationMinutes;
-      }
-    }
-
-    if (basket.fold) {
-      final service = getServiceByType('fold', false);
-      if (service != null) {
-        totalMinutes += service.baseDurationMinutes;
-      }
-    }
-
-    return totalMinutes;
-  }
-
-  /// Compute receipt with all calculations
-  ComputedReceipt computeReceipt() {
-    // Product lines
-    final productLines = orderProductCounts.entries.map((entry) {
-      final product = products.firstWhere((p) => p.id == entry.key);
-      final qty = entry.value;
-      final lineTotal = product.unitPrice * qty;
-      return ReceiptProductLine(
-        id: entry.key,
-        name: product.itemName,
-        qty: qty,
-        price: product.unitPrice,
-        lineTotal: lineTotal,
-      );
-    }).toList();
-
-    final productSubtotal = productLines.fold(
-      0.0,
-      (sum, line) => sum + line.lineTotal,
-    );
-
-    // Basket lines
-    final basketLines = baskets.map((b) {
-      final weight = b.weightKg;
-
-      final washService = getServiceByType('wash', b.washPremium);
-      final washPrice = b.washCount > 0 && washService != null
-          ? washService.ratePerKg * weight * b.washCount
-          : 0.0;
-
-      final dryService = getServiceByType('dry', b.dryPremium);
-      final dryPrice = b.dryCount > 0 && dryService != null
-          ? dryService.ratePerKg * weight * b.dryCount
-          : 0.0;
-
-      final spinService = getServiceByType('spin', false);
-      final spinPrice = b.spinCount > 0 && spinService != null
-          ? spinService.ratePerKg * weight * b.spinCount
-          : 0.0;
-
-      final ironService = getServiceByType('iron', false);
-      final ironPrice = b.iron && ironService != null
-          ? ironService.ratePerKg * weight
-          : 0.0;
-
-      final foldService = getServiceByType('fold', false);
-      final foldPrice = b.fold && foldService != null
-          ? foldService.ratePerKg * weight
-          : 0.0;
-
-      final subtotal = washPrice + dryPrice + spinPrice + ironPrice + foldPrice;
-
-      return ReceiptBasketLine(
-        id: b.id,
-        name: b.name,
-        weightKg: b.weightKg,
-        breakdown: {
-          'wash': washPrice,
-          'dry': dryPrice,
-          'spin': spinPrice,
-          'iron': ironPrice,
-          'fold': foldPrice,
-        },
-        premiumFlags: {'wash': b.washPremium, 'dry': b.dryPremium},
-        notes: b.notes,
-        total: subtotal,
-        estimatedDurationMinutes: calculateBasketDuration(b),
-      );
-    }).toList();
-
-    final basketSubtotal = basketLines.fold(
-      0.0,
-      (sum, line) => sum + line.total,
-    );
-
-    // Handling fee
-    final handlingFee = handling.deliver ? handling.deliveryFee : 0.0;
-
-    final subtotalBeforeTax = productSubtotal + basketSubtotal + handlingFee;
-
-    // VAT calculation
-    final vatIncluded = subtotalBeforeTax * (TAX_RATE / (1 + TAX_RATE));
-
-    return ComputedReceipt(
-      productLines: productLines,
-      basketLines: basketLines,
-      productSubtotal: productSubtotal,
-      basketSubtotal: basketSubtotal,
-      handlingFee: handlingFee,
-      taxIncluded: vatIncluded,
-      total: subtotalBeforeTax,
-    );
-  }
-
-  /// Save order to backend with new JSON structure
-  Future<String?> saveOrder() async {
-    if (isProcessing) return null;
-    isProcessing = true;
-    notifyListeners();
-
-    try {
-      final receipt = computeReceipt();
-
-      if (customer?.id == null) {
-        throw Exception('Customer not selected');
-      }
-
-      // Build breakdown JSON structure
-      final breakdownJson = {
-        'items': orderProductCounts.entries.map((entry) {
-          final product = products.firstWhere((p) => p.id == entry.key);
-          final subtotal = product.unitPrice * entry.value;
-          return {
-            'id': 'item_${entry.key}_${DateTime.now().millisecondsSinceEpoch}',
-            'product_id': entry.key,
-            'product_name': product.itemName,
-            'quantity': entry.value,
-            'unit_cost': product.unitCost ?? 0,
-            'unit_price': product.unitPrice,
-            'subtotal': subtotal,
-          };
-        }).toList(),
-        'baskets': baskets.map((b) {
-          final basketServices = <Map<String, dynamic>>[];
-
-          // Build services array for this basket
-          final serviceTypes = {
-            'wash': b.washCount,
-            'dry': b.dryCount,
-            'spin': b.spinCount,
-            'iron': b.iron ? 1 : 0,
-            'fold': b.fold ? 1 : 0,
-          };
-
-          serviceTypes.forEach((type, count) {
-            if (count > 0) {
-              final service = getServiceByType(
-                type,
-                (type == 'wash' && b.washPremium) ||
-                    (type == 'dry' && b.dryPremium),
-              );
-              if (service != null) {
-                final subtotal = service.ratePerKg * b.weightKg * count;
-                basketServices.add({
-                  'id':
-                      'svc_${type}_${b.id}_${DateTime.now().millisecondsSinceEpoch}',
-                  'service_id': service.id,
-                  'service_name': service.name,
-                  'is_premium':
-                      (type == 'wash' && b.washPremium) ||
-                      (type == 'dry' && b.dryPremium),
-                  'multiplier': count,
-                  'rate_per_kg': service.ratePerKg,
-                  'subtotal': subtotal,
-                  'status': 'pending',
-                  'started_at': null,
-                  'completed_at': null,
-                  'completed_by': null,
-                  'duration_in_minutes': null,
-                });
-              }
-            }
-          });
-
-          final basketLine = receipt.basketLines.firstWhere(
-            (bl) => bl.id == b.id,
-          );
-
-          return {
-            'basket_number': baskets.indexOf(b) + 1,
-            'weight': b.weightKg,
-            'basket_notes': b.notes.isNotEmpty ? b.notes : null,
-            'services': basketServices,
-            'total': basketLine.total,
-          };
-        }).toList(),
-        'fees': <Map<String, dynamic>>[
-          if (handling.deliver)
-            {
-              'id': 'fee_delivery_${DateTime.now().millisecondsSinceEpoch}',
-              'type': 'handling_fee',
-              'description': 'Delivery Fee',
-              'amount': handling.deliveryFee,
-            },
-        ],
-        'discounts': <Map<String, dynamic>>[],
-        'summary': {
-          'subtotal_products': receipt.productSubtotal,
-          'subtotal_services': receipt.basketSubtotal,
-          'handling': handling.deliver ? handling.deliveryFee : 0,
-          'service_fee': 0,
-          'discounts': 0,
-          'vat_rate': 0.12,
-          'vat_amount': receipt.taxIncluded,
-          'vat_model': 'inclusive',
-          'grand_total': receipt.total,
-        },
-        'payment': {
-          'method': payment.method,
-          'amount_paid': receipt.total,
-          'change': 0,
-          'reference_number': payment.referenceNumber,
-          'payment_status': 'successful',
-          'completed_at': DateTime.now().toIso8601String(),
-        },
-        'audit_log': <Map<String, dynamic>>[
-          {
-            'action': 'created',
-            'timestamp': DateTime.now().toIso8601String(),
-            'changed_by': null, // Mobile app - no staff user
-            'details': {'source': 'mobile_app'},
-          },
-        ],
-      };
-
-      // Build handling JSON structure
-      final handlingJson = {
-        'pickup': {
-          'address': handling.pickupAddress.isNotEmpty
-              ? handling.pickupAddress
-              : null,
-          'latitude': null,
-          'longitude': null,
-          'notes': handling.instructions.isNotEmpty
-              ? handling.instructions
-              : null,
-          'status': 'pending',
-          'started_at': null,
-          'completed_at': null,
-          'completed_by': null,
-          'duration_in_minutes': null,
-        },
-        'delivery': handling.deliver
-            ? {
-                'address': handling.deliveryAddress.isNotEmpty
-                    ? handling.deliveryAddress
-                    : null,
-                'latitude': null,
-                'longitude': null,
-                'notes': null,
-                'status': 'pending',
-                'started_at': null,
-                'completed_at': null,
-                'completed_by': null,
-                'duration_in_minutes': null,
-              }
-            : null,
-      };
-
-      // Build final order payload matching new schema
-      final orderData = {
-        'source': 'app',
-        'customer_id': customer!.id,
-        'cashier_id': null, // Mobile orders don't have cashier
-        'status': 'pending',
-        'total_amount': receipt.total,
-        'order_note': handling.instructions.isNotEmpty
-            ? handling.instructions
-            : null,
-        'handling': handlingJson,
-        'breakdown': breakdownJson,
-        'cancellation': null,
-      };
-
-      debugPrint('📦 Saving order with structure: ${orderData.toString()}');
-
-      // Call service to save order
-      final orderId = await _posService.saveOrder(orderData);
-
-      debugPrint('✅ Order saved successfully: $orderId');
-      resetBooking();
-
-      return orderId;
-    } catch (e) {
-      debugPrint('❌ Save order error: $e');
-      isProcessing = false;
-      notifyListeners();
-      rethrow;
-    }
-  }
-
-  /// Reset entire booking state
-  void resetBooking() {
-    customer = null;
-    customerQuery = '';
-    customerSuggestions = [];
+  /// Clear all booking state for a new order
+  void resetForNewOrder() {
+    orderProductCounts.clear();
     baskets = [_createNewBasket(0)];
     activeBasketIndex = 0;
-    orderProductCounts = {};
-    handling = HandlingState();
-    payment = PaymentState();
-    activePane = BookingPane.customer;
-    showConfirm = false;
-    isProcessing = false;
-    notifyListeners();
-  }
-
-  /// Update handling state
-  void setHandling(HandlingState newHandling) {
-    handling = newHandling;
-    notifyListeners();
-  }
-
-  /// Update payment state
-  void setPayment(PaymentState newPayment) {
-    payment = newPayment;
-    notifyListeners();
-  }
-
-  /// Set active pane
-  void setActivePane(BookingPane pane) {
-    activePane = pane;
-    notifyListeners();
-  }
-
-  /// Set active basket
-  void setActiveBasketIndex(int index) {
-    if (index >= 0 && index < baskets.length) {
-      activeBasketIndex = index;
-      notifyListeners();
-    }
-  }
-
-  /// Toggle confirm dialog
-  void setShowConfirm(bool show) {
-    showConfirm = show;
+    handling = HandlingState(
+      pickup: true,
+      pickupAddress: customer?.address ?? '',
+    );
     notifyListeners();
   }
 }

@@ -6,6 +6,7 @@ class Product {
   final double? reorderLevel;
   final double? unitCost;
   final bool isActive;
+  final String? imageUrl;
   final DateTime? createdAt;
   final DateTime? lastUpdated;
 
@@ -17,6 +18,7 @@ class Product {
     this.reorderLevel = 0,
     this.unitCost = 0,
     this.isActive = true,
+    this.imageUrl,
     this.createdAt,
     this.lastUpdated,
   });
@@ -34,6 +36,7 @@ class Product {
           ? (json['unit_cost'] as num).toDouble()
           : 0,
       isActive: json['is_active'] ?? true,
+      imageUrl: json['image_url'],
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : null,
@@ -52,6 +55,7 @@ class Product {
       'reorder_level': reorderLevel,
       'unit_cost': unitCost,
       'is_active': isActive,
+      'image_url': imageUrl,
       'created_at': createdAt?.toIso8601String(),
       'last_updated': lastUpdated?.toIso8601String(),
     };

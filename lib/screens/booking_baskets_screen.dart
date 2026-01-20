@@ -5,7 +5,7 @@ import 'package:ilaba/widgets/custom_text_field.dart';
 import 'package:ilaba/models/pos_types.dart';
 
 class BookingBasketsScreen extends StatefulWidget {
-  const BookingBasketsScreen({Key? key}) : super(key: key);
+  const BookingBasketsScreen({super.key});
 
   @override
   State<BookingBasketsScreen> createState() => _BookingBasketsScreenState();
@@ -24,6 +24,82 @@ class _BookingBasketsScreenState extends State<BookingBasketsScreen> {
   void dispose() {
     _notesController.dispose();
     super.dispose();
+  }
+
+  int _calculateBasketDuration(Basket basket, List<LaundryService> services) {
+    int duration = 0;
+    
+    if (basket.washCount > 0) {
+      final service = services.firstWhere(
+        (s) => s.serviceType == 'wash',
+        orElse: () => LaundryService(
+          id: '', serviceType: '', name: '', description: '', baseDurationMinutes: 0, ratePerKg: 0, isActive: false,
+        ),
+      );
+      duration += service.baseDurationMinutes * basket.washCount;
+    }
+    
+    if (basket.dryCount > 0) {
+      final service = services.firstWhere(
+        (s) => s.serviceType == 'dry',
+        orElse: () => LaundryService(
+          id: '', serviceType: '', name: '', description: '', baseDurationMinutes: 0, ratePerKg: 0, isActive: false,
+        ),
+      );
+      duration += service.baseDurationMinutes * basket.dryCount;
+    }
+    
+    if (basket.spinCount > 0) {
+      final service = services.firstWhere(
+        (s) => s.serviceType == 'spin',
+        orElse: () => LaundryService(
+          id: '', serviceType: '', name: '', description: '', baseDurationMinutes: 0, ratePerKg: 0, isActive: false,
+        ),
+      );
+      duration += service.baseDurationMinutes * basket.spinCount;
+    }
+    
+    if (basket.iron) {
+      final service = services.firstWhere(
+        (s) => s.serviceType == 'iron',
+        orElse: () => LaundryService(
+          id: '', serviceType: '', name: '', description: '', baseDurationMinutes: 0, ratePerKg: 0, isActive: false,
+        ),
+      );
+      duration += service.baseDurationMinutes;
+    }
+    
+    if (basket.fold) {
+      final service = services.firstWhere(
+        (s) => s.serviceType == 'fold',
+        orElse: () => LaundryService(
+          id: '', serviceType: '', name: '', description: '', baseDurationMinutes: 0, ratePerKg: 0, isActive: false,
+        ),
+      );
+      duration += service.baseDurationMinutes;
+    }
+    
+    return duration;
+  }
+
+  /// Check if a basic (non-premium) service is active
+  bool _isServiceActive(List<LaundryService> services, String serviceType) {
+    try {
+      final service = services.firstWhere(
+        (s) => s.serviceType == serviceType && !s.name.toLowerCase().contains('premium'),
+      );
+      return service.isActive;
+    } catch (e) {
+      // Fallback: check if any service with this type is active
+      try {
+        final service = services.firstWhere(
+          (s) => s.serviceType == serviceType,
+        );
+        return service.isActive;
+      } catch (e) {
+        return false;
+      }
+    }
   }
 
   @override
@@ -231,7 +307,7 @@ class _BookingBasketsScreenState extends State<BookingBasketsScreen> {
                     );
                   },
                   hasPremium: true,
-                  disabled: activeBasket.weightKg == 0,
+                  disabled: false, // Not used anymore, kept for compatibility
                   weight: activeBasket.weightKg,
                 ),
                 const SizedBox(height: 8),
@@ -264,7 +340,7 @@ class _BookingBasketsScreenState extends State<BookingBasketsScreen> {
                     );
                   },
                   hasPremium: true,
-                  disabled: activeBasket.weightKg == 0,
+                  disabled: false, // Not used anymore, kept for compatibility
                   weight: activeBasket.weightKg,
                 ),
                 const SizedBox(height: 8),
@@ -293,7 +369,7 @@ class _BookingBasketsScreenState extends State<BookingBasketsScreen> {
                   },
                   onPremiumChanged: null,
                   hasPremium: false,
-                  disabled: activeBasket.weightKg == 0,
+                  disabled: activeBasket.weightKg == 0 || !_isServiceActive(state.services, 'spin'),
                   weight: activeBasket.weightKg,
                 ),
                 const SizedBox(height: 8),
@@ -316,7 +392,7 @@ class _BookingBasketsScreenState extends State<BookingBasketsScreen> {
                   },
                   onPremiumChanged: null,
                   hasPremium: false,
-                  disabled: activeBasket.weightKg == 0,
+                  disabled: activeBasket.weightKg == 0 || !_isServiceActive(state.services, 'iron'),
                   isToggle: true,
                   weight: activeBasket.weightKg,
                 ),
@@ -340,7 +416,7 @@ class _BookingBasketsScreenState extends State<BookingBasketsScreen> {
                   },
                   onPremiumChanged: null,
                   hasPremium: false,
-                  disabled: activeBasket.weightKg == 0,
+                  disabled: activeBasket.weightKg == 0 || !_isServiceActive(state.services, 'fold'),
                   isToggle: true,
                   weight: activeBasket.weightKg,
                 ),
@@ -415,7 +491,7 @@ class _BookingBasketsScreenState extends State<BookingBasketsScreen> {
                             ),
                           ),
                           Text(
-                            '${context.read<BookingStateNotifier>().calculateBasketDuration(activeBasket)} min',
+                            '${_calculateBasketDuration(activeBasket, state.services)} min',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -543,13 +619,22 @@ class _ServiceListItem extends StatelessWidget {
     final currentPrice = isPremium ? premiumPrice : basePrice;
     final totalDuration = baseDuration * count;
 
+    // Determine if the +/- buttons should be disabled
+    // Buttons are disabled if: weight is 0 OR the current variant (basic/premium) is inactive
+    final buttonsDisabled = weight == 0 ||
+        (!isPremium && !_isCurrentVariantActive()) ||
+        (isPremium && !_isPremiumVariantActive());
+
+    // Premium toggle should only be disabled if there's no premium variant at all
+    final premiumToggleDisabled = !_hasPremiumVariant();
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: disabled ? Colors.grey[100] : Colors.white,
+        color: buttonsDisabled ? Colors.grey[100] : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: disabled ? Colors.grey[300]! : Colors.grey[200]!,
+          color: buttonsDisabled ? Colors.grey[300]! : Colors.grey[200]!,
         ),
       ),
       child: Column(
@@ -564,7 +649,7 @@ class _ServiceListItem extends StatelessWidget {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
-                    color: disabled ? Colors.grey[600] : Colors.black,
+                    color: buttonsDisabled ? Colors.grey[600] : Colors.black,
                   ),
                 ),
               ),
@@ -574,7 +659,7 @@ class _ServiceListItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: disabled ? Colors.grey[600] : Colors.blue,
+                  color: buttonsDisabled ? Colors.grey[600] : Colors.blue,
                 ),
               ),
               const SizedBox(width: 12),
@@ -583,7 +668,7 @@ class _ServiceListItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: disabled ? Colors.grey[600] : Colors.orange,
+                  color: buttonsDisabled ? Colors.grey[600] : Colors.orange,
                 ),
               ),
             ],
@@ -600,25 +685,25 @@ class _ServiceListItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: disabled ? Colors.grey[600] : Colors.blue,
+                  color: buttonsDisabled ? Colors.grey[600] : Colors.blue,
                 ),
               ),
 
               const SizedBox(width: 12),
 
-              // Buttons
+              // Buttons - disabled based on variant availability
               if (!isToggle)
                 Row(
                   children: [
                     _ControlButton(
                       icon: Icons.remove,
-                      onPressed: disabled ? null : onDecrement,
+                      onPressed: buttonsDisabled ? null : onDecrement,
                       size: 28,
                     ),
                     const SizedBox(width: 8),
                     _ControlButton(
                       icon: Icons.add,
-                      onPressed: disabled ? null : onIncrement,
+                      onPressed: buttonsDisabled ? null : onIncrement,
                       size: 28,
                     ),
                   ],
@@ -626,19 +711,17 @@ class _ServiceListItem extends StatelessWidget {
               else
                 _ControlButton(
                   icon: count > 0 ? Icons.check : Icons.add,
-                  onPressed: disabled ? null : onIncrement,
+                  onPressed: buttonsDisabled ? null : onIncrement,
                   size: 28,
                   isActive: count > 0,
                 ),
 
               const Spacer(),
 
-              // Premium checkbox
+              // Premium checkbox - always clickable if premium variant exists
               if (hasPremium)
                 GestureDetector(
-                  onTap: disabled
-                      ? null
-                      : () => onPremiumChanged?.call(!isPremium),
+                  onTap: premiumToggleDisabled ? null : () => onPremiumChanged?.call(!isPremium),
                   child: Row(
                     children: [
                       SizedBox(
@@ -646,7 +729,7 @@ class _ServiceListItem extends StatelessWidget {
                         height: 20,
                         child: Checkbox(
                           value: isPremium,
-                          onChanged: disabled
+                          onChanged: premiumToggleDisabled
                               ? null
                               : (value) {
                                   onPremiumChanged?.call(value ?? false);
@@ -660,7 +743,7 @@ class _ServiceListItem extends StatelessWidget {
                         'Premium',
                         style: TextStyle(
                           fontSize: 13,
-                          color: disabled ? Colors.grey[600] : Colors.purple,
+                          color: premiumToggleDisabled ? Colors.grey[600] : Colors.purple,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -672,6 +755,59 @@ class _ServiceListItem extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Check if the current variant (basic if not premium, premium if premium flag is true) is active
+  bool _isCurrentVariantActive() {
+    if (isPremium) {
+      return _isPremiumVariantActive();
+    } else {
+      return _isBasicVariantActive();
+    }
+  }
+
+  /// Check if basic variant is active - matches web implementation
+  /// For "wash": looks for service with service_type="wash" and name does NOT contain "premium"
+  /// E.g., finds "Wash" but not "Wash Premium"
+  bool _isBasicVariantActive() {
+    try {
+      final service = services.firstWhere(
+        (s) => s.serviceType == serviceType && !s.name.toLowerCase().contains('premium'),
+      );
+      debugPrint('✓ _isBasicVariantActive($serviceType): Found "${service.name}" (isActive=${service.isActive})');
+      return service.isActive;
+    } catch (e) {
+      debugPrint('✗ _isBasicVariantActive($serviceType): No basic variant found. Available services: ${services.where((s) => s.serviceType == serviceType).map((s) => "${s.name} (active=${s.isActive})").join(", ")}');
+      return false;
+    }
+  }
+
+  /// Check if premium variant is active - matches web implementation
+  /// For "wash": looks for service with service_type="wash" and name contains "premium"
+  /// E.g., finds "Wash Premium" but not "Wash"
+  bool _isPremiumVariantActive() {
+    try {
+      final service = services.firstWhere(
+        (s) => s.serviceType == serviceType && s.name.toLowerCase().contains('premium'),
+      );
+      debugPrint('✓ _isPremiumVariantActive($serviceType): Found "${service.name}" (isActive=${service.isActive})');
+      return service.isActive;
+    } catch (e) {
+      debugPrint('✗ _isPremiumVariantActive($serviceType): No premium variant found. Available services: ${services.where((s) => s.serviceType == serviceType).map((s) => "${s.name} (active=${s.isActive})").join(", ")}');
+      return false;
+    }
+  }
+
+  /// Check if a premium variant exists (regardless of active status)
+  bool _hasPremiumVariant() {
+    try {
+      services.firstWhere(
+        (s) => s.serviceType == serviceType && s.name.toLowerCase().contains('premium'),
+      );
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 }
 

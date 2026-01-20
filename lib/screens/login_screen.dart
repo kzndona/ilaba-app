@@ -175,9 +175,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: colorScheme.onSurfaceVariant,
                             ),
                             filled: true,
-                            fillColor: colorScheme.surfaceVariant.withOpacity(
-                              0.35,
-                            ),
+                            fillColor: colorScheme.surfaceContainerHighest
+                                .withOpacity(0.35),
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
@@ -217,9 +216,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               },
                             ),
                             filled: true,
-                            fillColor: colorScheme.surfaceVariant.withOpacity(
-                              0.35,
-                            ),
+                            fillColor: colorScheme.surfaceContainerHighest
+                                .withOpacity(0.35),
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
@@ -268,7 +266,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   vertical: 14,
                                 ),
                                 disabledBackgroundColor:
-                                    colorScheme.surfaceVariant,
+                                    colorScheme.surfaceContainerHighest,
                                 disabledForegroundColor:
                                     colorScheme.onSurfaceVariant,
                               ),
