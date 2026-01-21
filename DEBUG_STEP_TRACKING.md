@@ -7,6 +7,7 @@ The order submission flow in `booking_flow_screen.dart` now includes **detailed 
 ## Changes Made
 
 ### 1. Enhanced `_submitOrder()` Method
+
 - **Location**: [booking_flow_screen.dart](booking_flow_screen.dart#L228)
 - **Changes**:
   - Added `String currentStep` variable to track each phase
@@ -22,7 +23,7 @@ The following steps now emit debug output:
 
 ```
 ✓ Reading booking state
-✓ Validating user  
+✓ Validating user
 ✓ Computing receipt → Total = $X.XX
 ✓ Building baskets → 2 baskets built
 ✓ Building products → 3 products built
@@ -36,6 +37,7 @@ The following steps now emit debug output:
 ```
 
 If any step fails:
+
 ```
 ❌ ERROR AT UNKNOWN STEP: [error details]
 ```
@@ -45,11 +47,13 @@ If any step fails:
 **Location**: [booking_flow_screen.dart](booking_flow_screen.dart#L512)
 
 **New Section**: Failed Step Indicator
+
 - Shows exactly which step failed (e.g., "Submitting order to API")
 - Displayed in amber warning box in error dialog
 - Appears between error message and debug details
 
 **Enhanced Parameters**:
+
 ```dart
 void _showErrorDialog(
   String message,
@@ -115,18 +119,21 @@ The error dialog now shows:
 ### Example Troubleshooting Scenarios:
 
 **Scenario 1: Fails at "Validating user"**
+
 ```
 ❌ Fails at step: Validating user
 → Check: Is customer ID empty? Did user log out?
 ```
 
 **Scenario 2: Fails at "Building baskets"**
+
 ```
 ❌ Fails at step: Building baskets
 → Check: Is service type missing? Is weight 0?
 ```
 
 **Scenario 3: Fails at "Submitting order to API"**
+
 ```
 ❌ Fails at step: Submitting order to API
 → Check: Is customer ID correct? Are there network issues?
@@ -155,9 +162,9 @@ Test cases to verify step tracking:
 
 ## Code Locations
 
-- **Main method**: [_submitOrder()](booking_flow_screen.dart#L228)
-- **Error dialog**: [_showErrorDialog()](booking_flow_screen.dart#L512)
-- **Step tracking**: Throughout _submitOrder() method
+- **Main method**: [\_submitOrder()](booking_flow_screen.dart#L228)
+- **Error dialog**: [\_showErrorDialog()](booking_flow_screen.dart#L512)
+- **Step tracking**: Throughout \_submitOrder() method
 
 ## Related Files
 

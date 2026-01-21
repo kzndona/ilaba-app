@@ -42,7 +42,9 @@ class OrderCreationServiceImpl implements OrderCreationService {
         'orderPayload': request.orderPayload.toJson(), // Uses POS format
       };
 
-      debugPrint('📤 Transactional payload: ${jsonEncode(transactionalPayload)}');
+      debugPrint(
+        '📤 Transactional payload: ${jsonEncode(transactionalPayload)}',
+      );
 
       final response = await http
           .post(

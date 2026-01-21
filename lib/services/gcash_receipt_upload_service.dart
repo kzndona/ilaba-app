@@ -9,16 +9,13 @@ class GCashReceiptUploadService {
   static const int maxFileSizeBytes = 2 * 1024 * 1024; // 2MB
 
   /// Upload a receipt file and return the public URL
-  /// 
+  ///
   /// Parameters:
   /// - filePath: Path to the image file
   /// - userId: Authenticated user's Supabase ID (for RLS policy path)
-  /// 
+  ///
   /// Returns: Public URL of uploaded file or null if upload fails
-  static Future<String?> uploadReceipt(
-    String filePath,
-    String userId,
-  ) async {
+  static Future<String?> uploadReceipt(String filePath, String userId) async {
     try {
       final file = File(filePath);
 
@@ -31,9 +28,7 @@ class GCashReceiptUploadService {
       // Check file size
       final fileSize = await file.length();
       if (fileSize > maxFileSizeBytes) {
-        debugPrint(
-          '❌ File too large: ${fileSize / 1024 / 1024}MB (max: 2MB)',
-        );
+        debugPrint('❌ File too large: ${fileSize / 1024 / 1024}MB (max: 2MB)');
         throw Exception(
           'File too large. Maximum size is 2MB. Your file is ${(fileSize / 1024 / 1024).toStringAsFixed(2)}MB',
         );
@@ -46,19 +41,23 @@ class GCashReceiptUploadService {
       // Use admin client (service role) to bypass RLS
       final supabaseUrl = dotenv.env['SUPABASE_URL'];
       final serviceRoleKey = dotenv.env['SUPABASE_SERVICE_ROLE_KEY'];
-      
+
       debugPrint('🔑 SUPABASE_URL: $supabaseUrl');
-      debugPrint('🔑 SERVICE_ROLE_KEY exists: ${serviceRoleKey != null && serviceRoleKey.isNotEmpty}');
+      debugPrint(
+        '🔑 SERVICE_ROLE_KEY exists: ${serviceRoleKey != null && serviceRoleKey.isNotEmpty}',
+      );
       debugPrint('🔑 SERVICE_ROLE_KEY length: ${serviceRoleKey?.length}');
-      debugPrint('🔑 SERVICE_ROLE_KEY starts with: ${serviceRoleKey?.substring(0, 20)}...');
-      
+      debugPrint(
+        '🔑 SERVICE_ROLE_KEY starts with: ${serviceRoleKey?.substring(0, 20)}...',
+      );
+
       if (supabaseUrl == null || supabaseUrl.isEmpty) {
         throw Exception('SUPABASE_URL not found in .env');
       }
       if (serviceRoleKey == null || serviceRoleKey.isEmpty) {
         throw Exception('SUPABASE_SERVICE_ROLE_KEY not found in .env');
       }
-      
+
       debugPrint('✅ Creating admin client with service role key...');
       final adminClient = SupabaseClient(supabaseUrl, serviceRoleKey);
       debugPrint('✅ Admin client created');
@@ -73,7 +72,9 @@ class GCashReceiptUploadService {
 
       // Upload file with admin client (bypasses RLS)
       debugPrint('🚀 Calling adminClient.storage.from().upload()...');
-      await adminClient.storage.from(bucketName).upload(
+      await adminClient.storage
+          .from(bucketName)
+          .upload(
             filePath2,
             file,
             fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
@@ -82,7 +83,9 @@ class GCashReceiptUploadService {
 
       // Get public URL using regular client
       final supabase = Supabase.instance.client;
-      final publicUrl = supabase.storage.from(bucketName).getPublicUrl(filePath2);
+      final publicUrl = supabase.storage
+          .from(bucketName)
+          .getPublicUrl(filePath2);
 
       debugPrint('✅ Upload successful: $publicUrl');
       return publicUrl;

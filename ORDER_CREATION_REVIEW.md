@@ -27,14 +27,17 @@ The endpoint `/api/orders/transactional-create` expects the following request fo
 ## Issues Found & Fixed ✅
 
 ### ✅ Issue 1: Incorrect CreateOrderRequest Constructor Usage
+
 **File**: [lib/screens/booking_flow_screen.dart](lib/screens/booking_flow_screen.dart#L414)
 
 **Before**:
+
 ```dart
 final request = CreateOrderRequest(payload: orderPayload);  // ❌ Missing customer
 ```
 
 **After**:
+
 ```dart
 final request = CreateOrderRequest(
   customer: CustomerData(
@@ -51,9 +54,11 @@ final request = CreateOrderRequest(
 ---
 
 ### ✅ Issue 2: Unused `payments` Parameter
+
 **File**: [lib/screens/booking_flow_screen.dart](lib/screens/booking_flow_screen.dart#L393-L400)
 
 **Before**:
+
 ```dart
 // Build payments payload (unused)
 final payments = [
@@ -68,6 +73,7 @@ final orderPayload = CreateOrderPayload(
 ```
 
 **After**:
+
 ```dart
 // Removed unnecessary payments variable
 // Payments are handled in order_creation_service.dart
@@ -89,14 +95,17 @@ final orderPayload = CreateOrderPayload(
 ---
 
 ### ✅ Issue 3: Incorrect Model Imports
+
 **File**: [lib/screens/booking_flow_screen.dart](lib/screens/booking_flow_screen.dart#L1-L15)
 
 **Before**:
+
 ```dart
 import 'package:ilaba/models/order_models_legacy.dart';  // ❌ Old POS format
 ```
 
 **After**:
+
 ```dart
 import 'package:ilaba/models/order_models.dart';  // ✅ New transactional format
 ```
@@ -106,9 +115,11 @@ import 'package:ilaba/models/order_models.dart';  // ✅ New transactional forma
 ---
 
 ### ✅ Issue 4: OrderCreationService Payload Construction
+
 **File**: [lib/services/order_creation_service.dart](lib/services/order_creation_service.dart#L18-L46)
 
 **Before**:
+
 ```dart
 final transactionalPayload = {
   'customer': {
@@ -121,6 +132,7 @@ final transactionalPayload = {
 ```
 
 **After**:
+
 ```dart
 final transactionalPayload = {
   'customer': {
@@ -207,15 +219,15 @@ The mobile app now sends requests in the correct format:
 
 ## Summary
 
-| Component | Status | Details |
-|-----------|--------|---------|
-| Customer Data Included | ✅ | Now properly passed to API |
-| OrderPayload Structure | ✅ | Correctly formatted with all required fields |
-| Baskets/Products | ✅ | Properly mapped to backend format |
-| Payments | ✅ | Included in orderPayload array |
-| Model Alignment | ✅ | Using order_models.dart (new transactional format) |
-| Service Implementation | ✅ | Correctly constructs the full request |
-| API Compliance | ✅ | Matches /api/orders/transactional-create spec |
+| Component              | Status | Details                                            |
+| ---------------------- | ------ | -------------------------------------------------- |
+| Customer Data Included | ✅     | Now properly passed to API                         |
+| OrderPayload Structure | ✅     | Correctly formatted with all required fields       |
+| Baskets/Products       | ✅     | Properly mapped to backend format                  |
+| Payments               | ✅     | Included in orderPayload array                     |
+| Model Alignment        | ✅     | Using order_models.dart (new transactional format) |
+| Service Implementation | ✅     | Correctly constructs the full request              |
+| API Compliance         | ✅     | Matches /api/orders/transactional-create spec      |
 
 ---
 
@@ -227,6 +239,3 @@ The mobile app now sends requests in the correct format:
 4. **lib/models/order_models_legacy.dart** - Marked as deprecated for this endpoint
 
 **No errors or warnings** ✅
-
-
-

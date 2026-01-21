@@ -9,7 +9,7 @@ String _generateId() {
   const String chars = '0123456789abcdef';
   final random = Random();
   final buffer = StringBuffer();
-  
+
   for (var i = 0; i < 36; i++) {
     if (i == 8 || i == 13 || i == 18 || i == 23) {
       buffer.write('-');
@@ -17,7 +17,7 @@ String _generateId() {
       buffer.write(chars[random.nextInt(16)]);
     }
   }
-  
+
   return buffer.toString();
 }
 
@@ -474,7 +474,9 @@ class CreateOrderPayload {
     // Calculate totals
     final subtotalProducts = products.fold(0.0, (sum, p) => sum + p.subtotal);
     final subtotalServices = baskets.fold(0.0, (sum, b) => sum + b.subtotal);
-    final serviceFee = baskets.isNotEmpty ? 10.0 : 0.0; // Service fee for baskets
+    final serviceFee = baskets.isNotEmpty
+        ? 10.0
+        : 0.0; // Service fee for baskets
     final vatAmount = total * (12 / 112); // 12% VAT (inclusive model)
 
     // Build handling JSONB structure (matches POS format)
@@ -569,7 +571,7 @@ class CreateOrderPayload {
           'action': 'created',
           'timestamp': DateTime.now().toIso8601String(),
           'changed_by': customerId,
-        }
+        },
       ],
       'discounts': null,
       'fees': [
@@ -578,7 +580,8 @@ class CreateOrderPayload {
             'id': _generateId(),
             'type': 'service_fee',
             'amount': serviceFee,
-            'description': 'Service fee (${baskets.length} basket${baskets.length > 1 ? 's' : ''})',
+            'description':
+                'Service fee (${baskets.length} basket${baskets.length > 1 ? 's' : ''})',
           },
         if (shippingFee > 0)
           {
