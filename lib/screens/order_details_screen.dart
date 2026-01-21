@@ -35,7 +35,9 @@ class OrderDetailsScreen extends StatelessWidget {
   /// Format currency consistently (always 2 decimals)
   String _formatCurrency(dynamic amount) {
     if (amount == null) return '₱0.00';
-    final value = amount is String ? double.tryParse(amount) ?? 0 : (amount as num).toDouble();
+    final value = amount is String
+        ? double.tryParse(amount) ?? 0
+        : (amount as num).toDouble();
     return '₱${value.toStringAsFixed(2)}';
   }
 
@@ -44,9 +46,16 @@ class OrderDetailsScreen extends StatelessWidget {
     return label
         .replaceAll('_', ' ')
         .split(' ')
-        .map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1).toLowerCase())
+        .map(
+          (word) => word.isEmpty
+              ? ''
+              : word[0].toUpperCase() + word.substring(1).toLowerCase(),
+        )
         .join(' ')
-        .replaceAllMapped(RegExp(r'\(([^)]+)\)'), (match) => '(${match.group(1)?.toLowerCase()})');
+        .replaceAllMapped(
+          RegExp(r'\(([^)]+)\)'),
+          (match) => '(${match.group(1)?.toLowerCase()})',
+        );
   }
 
   Color _getStatusColor(String? status) {
@@ -104,17 +113,16 @@ class OrderDetailsScreen extends StatelessWidget {
             Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    _getStatusColor(status).withOpacity(0.12),
-                    _getStatusColor(status).withOpacity(0.04),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: _getStatusColor(status).withOpacity(0.25),
-                  width: 1.2,
-                ),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               padding: const EdgeInsets.all(14),
               child: Column(
@@ -132,10 +140,8 @@ class OrderDetailsScreen extends StatelessWidget {
                               'Status',
                               style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(
-                                    fontSize: 12,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
+                                    fontSize: 11,
+                                    color: Colors.grey[600],
                                     fontWeight: FontWeight.w500,
                                   ),
                             ),
@@ -170,10 +176,8 @@ class OrderDetailsScreen extends StatelessWidget {
                               'Total',
                               style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(
-                                    fontSize: 12,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
+                                    fontSize: 11,
+                                    color: Colors.grey[600],
                                     fontWeight: FontWeight.w500,
                                   ),
                             ),
@@ -183,7 +187,7 @@ class OrderDetailsScreen extends StatelessWidget {
                               style: Theme.of(context).textTheme.headlineSmall
                                   ?.copyWith(
                                     fontWeight: FontWeight.w700,
-                                    fontSize: 20,
+                                    fontSize: 22,
                                     color: _getStatusColor(status),
                                   ),
                             ),
@@ -193,7 +197,7 @@ class OrderDetailsScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  const Divider(height: 0.8),
+                  Container(height: 0.8, color: Colors.grey[200]),
                   const SizedBox(height: 10),
                   Row(
                     children: [
@@ -247,7 +251,8 @@ class OrderDetailsScreen extends StatelessWidget {
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: itemCount,
                     itemBuilder: (context, index) {
-                      final item = breakdownItems[index] as Map<String, dynamic>;
+                      final item =
+                          breakdownItems[index] as Map<String, dynamic>;
                       return Card(
                         margin: EdgeInsets.zero,
                         elevation: 0,
@@ -263,43 +268,62 @@ class OrderDetailsScreen extends StatelessWidget {
                               Text(
                                 item['product_name'] ?? 'Unknown Product',
                                 style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(fontWeight: FontWeight.w700, fontSize: 15),
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 16,
+                                    ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 6),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     'Qty: ${item['quantity'] ?? 0}',
-                                    style: Theme.of(context).textTheme.labelSmall
-                                        ?.copyWith(fontSize: 13),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          fontSize: 12,
+                                          color: Colors.grey[700],
+                                        ),
                                   ),
                                   Text(
                                     _formatCurrency(item['unit_price']),
-                                    style: Theme.of(context).textTheme.labelSmall
-                                        ?.copyWith(fontSize: 13),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.grey[700],
+                                        ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 8),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Spacer(),
                                   Text(
                                     _formatCurrency(item['subtotal']),
-                                    style: Theme.of(context).textTheme.bodyMedium
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
                                         ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 16,
                                           color: Colors.green[700],
                                         ),
                                   ),
                                 ],
                               ),
-                              if (item['discount'] != null && (item['discount'] as num) > 0) ...[
+                              if (item['discount'] != null &&
+                                  (item['discount'] as num) > 0) ...[
                                 const SizedBox(height: 4),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
@@ -307,16 +331,19 @@ class OrderDetailsScreen extends StatelessWidget {
                                     vertical: 3,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.red[50],
+                                    color: Colors.red[100],
                                     borderRadius: BorderRadius.circular(5),
                                   ),
                                   child: Text(
                                     '-${_formatCurrency(item['discount'])}',
-                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                      color: Colors.red[700],
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 12,
-                                    ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: Colors.red[700],
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 11,
+                                        ),
                                   ),
                                 ),
                               ],
@@ -349,12 +376,9 @@ class OrderDetailsScreen extends StatelessWidget {
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
-                    side: BorderSide(
-                      color: Colors.blue[200]!,
-                      width: 1,
-                    ),
+                    side: BorderSide(color: Colors.grey[200]!, width: 0.8),
                   ),
-                  color: Colors.blue[50],
+                  color: Colors.white,
                   child: Padding(
                     padding: const EdgeInsets.all(11),
                     child: Column(
@@ -366,7 +390,10 @@ class OrderDetailsScreen extends StatelessWidget {
                             Text(
                               'Basket #${basket['basket_number'] ?? 'N/A'}',
                               style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(fontWeight: FontWeight.w700, fontSize: 15),
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                  ),
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -420,25 +447,31 @@ class OrderDetailsScreen extends StatelessWidget {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.orange[50],
+                              color: Colors.grey[100],
                               borderRadius: BorderRadius.circular(7),
+                              border: Border.all(
+                                color: Colors.grey[300]!,
+                                width: 0.5,
+                              ),
                             ),
                             child: Row(
                               children: [
                                 Icon(
                                   Icons.note_outlined,
                                   size: 13,
-                                  color: Colors.orange[700],
+                                  color: Colors.grey[700],
                                 ),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
                                     basket['basket_notes'] ?? '',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.labelSmall?.copyWith(
-                                      fontSize: 12,
-                                    ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          fontSize: 12,
+                                          color: Colors.grey[700],
+                                        ),
                                   ),
                                 ),
                               ],
@@ -482,7 +515,8 @@ class OrderDetailsScreen extends StatelessWidget {
                                         svc['service_name'] ?? 'Unknown',
                                         style: Theme.of(context)
                                             .textTheme
-                                            .bodySmall?.copyWith(
+                                            .bodySmall
+                                            ?.copyWith(
                                               fontWeight: FontWeight.w600,
                                               fontSize: 14,
                                             ),
@@ -492,7 +526,8 @@ class OrderDetailsScreen extends StatelessWidget {
                                       _formatCurrency(svc['total']),
                                       style: Theme.of(context)
                                           .textTheme
-                                          .bodySmall?.copyWith(
+                                          .bodySmall
+                                          ?.copyWith(
                                             fontWeight: FontWeight.w700,
                                             fontSize: 14,
                                             color: Colors.green[700],
@@ -514,7 +549,8 @@ class OrderDetailsScreen extends StatelessWidget {
 
             // 📋 Fees & Discounts Section - Multi-column
             if (breakdownFees.isNotEmpty || breakdownDiscounts.isNotEmpty) ...[
-              if (breakdownFees.isNotEmpty && breakdownDiscounts.isNotEmpty) ...[
+              if (breakdownFees.isNotEmpty &&
+                  breakdownDiscounts.isNotEmpty) ...[
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -538,36 +574,55 @@ class OrderDetailsScreen extends StatelessWidget {
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.amber[50],
+                                color: Colors.grey[50],
                                 borderRadius: BorderRadius.circular(9),
+                                border: Border.all(
+                                  color: Colors.grey[200]!,
+                                  width: 0.5,
+                                ),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Expanded(
                                         child: Text(
                                           f['description'] ?? 'Fee',
-                                          style: Theme.of(context).textTheme.bodySmall
-                                              ?.copyWith(fontWeight: FontWeight.w700, fontSize: 14),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 14,
+                                              ),
                                         ),
                                       ),
                                       Text(
                                         _formatCurrency(f['amount']),
-                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                          color: Colors.amber[900],
-                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: Colors.amber[900],
+                                            ),
                                       ),
                                     ],
                                   ),
+                                  const SizedBox(height: 3),
                                   Text(
-                                    _formatLabel(f['type'] ?? 'Unknown'),
-                                    style: Theme.of(context).textTheme.labelSmall
-                                        ?.copyWith(fontSize: 11),
+                                    'Type: ${_formatLabel(f['type'] ?? 'Unknown')}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          fontSize: 11,
+                                          color: Colors.grey[600],
+                                        ),
                                   ),
                                 ],
                               ),
@@ -597,37 +652,62 @@ class OrderDetailsScreen extends StatelessWidget {
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.red[50],
+                                color: Colors.grey[50],
                                 borderRadius: BorderRadius.circular(9),
+                                border: Border.all(
+                                  color: Colors.grey[200]!,
+                                  width: 0.5,
+                                ),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          '${(d['value'])}${d['value_type'] == 'percentage' ? '%' : ''}',
-                                          style: Theme.of(context).textTheme.bodySmall
-                                              ?.copyWith(fontWeight: FontWeight.w700, fontSize: 14),
+                                          d['value'] == 'percentage'
+                                              ? '${(d['value'])} off'
+                                              : '${_formatCurrency(d['value'])} off',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 14,
+                                              ),
                                         ),
                                       ),
                                       Text(
                                         '-${_formatCurrency(d['applied_amount'] ?? 0)}',
-                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                          color: Colors.red[700],
-                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: Colors.red[700],
+                                            ),
                                       ),
                                     ],
                                   ),
-                                  Text(
-                                    _formatLabel(d['reason'] ?? 'Applied discount'),
-                                    style: Theme.of(context).textTheme.labelSmall
-                                        ?.copyWith(fontSize: 11),
-                                  ),
+                                  if (d['reason'] != null) ...[
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      _formatLabel(
+                                        d['reason'] ?? 'Applied discount',
+                                      ),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall
+                                          ?.copyWith(
+                                            fontSize: 11,
+                                            color: Colors.grey[600],
+                                          ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             );
@@ -654,8 +734,9 @@ class OrderDetailsScreen extends StatelessWidget {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.amber[50],
+                      color: Colors.grey[50],
                       borderRadius: BorderRadius.circular(9),
+                      border: Border.all(color: Colors.grey[200]!, width: 0.5),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -667,23 +748,31 @@ class OrderDetailsScreen extends StatelessWidget {
                               Text(
                                 f['description'] ?? 'Fee',
                                 style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(fontWeight: FontWeight.w700, fontSize: 14),
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
                               ),
+                              const SizedBox(height: 2),
                               Text(
                                 'Type: ${_formatLabel(f['type'] ?? 'Unknown')}',
                                 style: Theme.of(context).textTheme.labelSmall
-                                    ?.copyWith(fontSize: 12),
+                                    ?.copyWith(
+                                      fontSize: 11,
+                                      color: Colors.grey[600],
+                                    ),
                               ),
                             ],
                           ),
                         ),
                         Text(
                           _formatCurrency(f['amount']),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: Colors.amber[900],
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: Colors.amber[900],
+                              ),
                         ),
                       ],
                     ),
@@ -706,8 +795,9 @@ class OrderDetailsScreen extends StatelessWidget {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.red[50],
+                      color: Colors.grey[50],
                       borderRadius: BorderRadius.circular(9),
+                      border: Border.all(color: Colors.grey[200]!, width: 0.5),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -717,26 +807,37 @@ class OrderDetailsScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '${(d['type']?.toString() ?? 'Discount').toUpperCase()} - ${d['value']}${d['value_type'] == 'percentage' ? '%' : ''}',
+                                d['value'] == 'percentage'
+                                    ? '${(d['value'])} off'
+                                    : '${_formatCurrency(d['value'])} off',
                                 style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(fontWeight: FontWeight.w700, fontSize: 14),
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
                               ),
-                              if (d['reason'] != null)
+                              if (d['reason'] != null) ...[
+                                const SizedBox(height: 3),
                                 Text(
                                   _formatLabel(d['reason']),
                                   style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(fontSize: 12),
+                                      ?.copyWith(
+                                        fontSize: 11,
+                                        color: Colors.grey[600],
+                                      ),
                                 ),
+                              ],
                             ],
                           ),
                         ),
                         Text(
                           '-${_formatCurrency(d['applied_amount'] ?? 0)}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: Colors.red[700],
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: Colors.red[700],
+                              ),
                         ),
                       ],
                     ),
@@ -757,10 +858,16 @@ class OrderDetailsScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.grey[50]!, Colors.grey[100]!],
-                ),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: Colors.grey[200]!, width: 0.8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 6,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -791,11 +898,18 @@ class OrderDetailsScreen extends StatelessWidget {
                       _formatCurrency(breakdownSummary['service_fee']),
                       isHighlight: false,
                     ),
-                  const Divider(height: 12),
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 10),
+                    height: 0.8,
+                    color: Colors.grey[200],
+                  ),
                   _buildSummaryRow(
                     context,
                     'Subtotal',
-                    _formatCurrency((breakdownSummary['subtotal_products'] ?? 0) + (breakdownSummary['subtotal_services'] ?? 0)),
+                    _formatCurrency(
+                      (breakdownSummary['subtotal_products'] ?? 0) +
+                          (breakdownSummary['subtotal_services'] ?? 0),
+                    ),
                     isHighlight: true,
                   ),
                   if ((breakdownSummary['discounts'] ?? 0) > 0)
@@ -806,12 +920,16 @@ class OrderDetailsScreen extends StatelessWidget {
                       isHighlight: true,
                       isNegative: true,
                     ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 7,
+                    ),
                     decoration: BoxDecoration(
-                      color: Colors.blue[50],
+                      color: Colors.grey[50],
                       borderRadius: BorderRadius.circular(7),
+                      border: Border.all(color: Colors.grey[200]!, width: 0.5),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -821,31 +939,36 @@ class OrderDetailsScreen extends StatelessWidget {
                           children: [
                             Text(
                               'VAT (${(breakdownSummary['vat_rate'] ?? 12).toStringAsFixed(0)}%)',
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
                             ),
                             Text(
                               _formatCurrency(breakdownSummary['vat_amount']),
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                              ),
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                  ),
                             ),
                           ],
                         ),
+                        const SizedBox(height: 2),
                         Text(
                           'Inclusive',
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: Colors.grey[600],
-                            fontSize: 11,
-                          ),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: Colors.grey[600], fontSize: 11),
                         ),
                       ],
                     ),
                   ),
-                  const Divider(height: 12),
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 10),
+                    height: 0.8,
+                    color: Colors.grey[200],
+                  ),
                   _buildSummaryRow(
                     context,
                     'TOTAL',
@@ -870,9 +993,16 @@ class OrderDetailsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.green[50],
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(11),
-                  border: Border.all(color: Colors.green[200]!, width: 1),
+                  border: Border.all(color: Colors.grey[200]!, width: 0.8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 6,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -882,10 +1012,11 @@ class OrderDetailsScreen extends StatelessWidget {
                       children: [
                         Text(
                           'Method',
-                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -897,7 +1028,10 @@ class OrderDetailsScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            _formatLabel((breakdownPayment['method'] ?? 'Unknown').toString()),
+                            _formatLabel(
+                              (breakdownPayment['method'] ?? 'Unknown')
+                                  .toString(),
+                            ),
                             style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -920,22 +1054,30 @@ class OrderDetailsScreen extends StatelessWidget {
                         _formatCurrency(breakdownPayment['change']),
                         isNegative: true,
                       ),
-                    const SizedBox(height: 7),
+                    const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 7,
+                      ),
                       decoration: BoxDecoration(
-                        color: _getStatusColor(breakdownPayment['payment_status']).withOpacity(0.15),
+                        color: Colors.grey[50],
                         borderRadius: BorderRadius.circular(7),
+                        border: Border.all(
+                          color: Colors.grey[200]!,
+                          width: 0.5,
+                        ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                             'Status',
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -943,11 +1085,16 @@ class OrderDetailsScreen extends StatelessWidget {
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: _getStatusColor(breakdownPayment['payment_status']),
+                              color: _getStatusColor(
+                                breakdownPayment['payment_status'],
+                              ),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              _formatLabel((breakdownPayment['payment_status'] ?? 'N/A').toString()),
+                              _formatLabel(
+                                (breakdownPayment['payment_status'] ?? 'N/A')
+                                    .toString(),
+                              ),
                               style: const TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
@@ -965,6 +1112,10 @@ class OrderDetailsScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Colors.grey[100],
                           borderRadius: BorderRadius.circular(7),
+                          border: Border.all(
+                            color: Colors.grey[300]!,
+                            width: 0.5,
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -980,17 +1131,21 @@ class OrderDetailsScreen extends StatelessWidget {
                                 children: [
                                   Text(
                                     'Ref #',
-                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                      color: Colors.grey[600],
-                                      fontSize: 11,
-                                    ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: Colors.grey[600],
+                                          fontSize: 11,
+                                        ),
                                   ),
                                   Text(
                                     breakdownPayment['reference_number'] ?? '',
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
-                                    ),
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                        ),
                                   ),
                                 ],
                               ),
@@ -1019,7 +1174,12 @@ class OrderDetailsScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: _buildHandlingCard(context, 'Pickup', pickupData, Colors.blue),
+                      child: _buildHandlingCard(
+                        context,
+                        'Pickup',
+                        pickupData,
+                        Colors.blue,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -1034,7 +1194,12 @@ class OrderDetailsScreen extends StatelessWidget {
                 ),
               ] else ...[
                 if (pickupData.isNotEmpty)
-                  _buildHandlingCard(context, 'Pickup', pickupData, Colors.blue),
+                  _buildHandlingCard(
+                    context,
+                    'Pickup',
+                    pickupData,
+                    Colors.blue,
+                  ),
                 if (deliveryData.isNotEmpty)
                   _buildHandlingCard(
                     context,
@@ -1053,7 +1218,7 @@ class OrderDetailsScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.red[50],
                   borderRadius: BorderRadius.circular(11),
-                  border: Border.all(color: Colors.red[300]!),
+                  border: Border.all(color: Colors.grey[200]!, width: 0.8),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1072,7 +1237,7 @@ class OrderDetailsScreen extends StatelessWidget {
                               ?.copyWith(
                                 color: Colors.red[700],
                                 fontWeight: FontWeight.bold,
-                                fontSize: 15,
+                                fontSize: 16,
                               ),
                         ),
                       ],
@@ -1080,15 +1245,18 @@ class OrderDetailsScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       'Reason: ${_formatLabel(cancellation['reason'] ?? 'N/A')}',
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(fontSize: 14),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     if (cancellation['notes'] != null) ...[
                       const SizedBox(height: 5),
                       Text(
                         'Notes: ${cancellation['notes']}',
-                        style: Theme.of(context).textTheme.labelSmall
-                            ?.copyWith(fontSize: 12),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.labelSmall?.copyWith(fontSize: 12),
                       ),
                     ],
                     const SizedBox(height: 6),
@@ -1132,7 +1300,10 @@ class OrderDetailsScreen extends StatelessWidget {
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 7),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.grey[50],
                     borderRadius: BorderRadius.circular(8),
@@ -1148,7 +1319,11 @@ class OrderDetailsScreen extends StatelessWidget {
                           color: Colors.blue[100],
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(Icons.check_circle, color: Colors.blue[700], size: 16),
+                        child: Icon(
+                          Icons.check_circle,
+                          color: Colors.blue[700],
+                          size: 16,
+                        ),
                       ),
                       const SizedBox(width: 9),
                       Expanded(
@@ -1157,22 +1332,28 @@ class OrderDetailsScreen extends StatelessWidget {
                           children: [
                             Text(
                               action,
-                              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14,
-                              ),
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                  ),
                             ),
                             const SizedBox(height: 2),
                             Row(
                               children: [
-                                Icon(Icons.schedule, size: 11, color: Colors.grey[600]),
+                                Icon(
+                                  Icons.schedule,
+                                  size: 11,
+                                  color: Colors.grey[600],
+                                ),
                                 const SizedBox(width: 3),
                                 Text(
                                   timestamp,
-                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: Colors.grey[600],
-                                    fontSize: 11,
-                                  ),
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(
+                                        color: Colors.grey[600],
+                                        fontSize: 11,
+                                      ),
                                 ),
                               ],
                             ),
@@ -1180,9 +1361,9 @@ class OrderDetailsScreen extends StatelessWidget {
                               const SizedBox(height: 2),
                               Text(
                                 'By: ${log['changed_by']}',
-                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  fontSize: 11,
-                                ),
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.labelSmall?.copyWith(fontSize: 11),
                               ),
                             ],
                           ],
@@ -1212,17 +1393,13 @@ class OrderDetailsScreen extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(
-              icon,
-              size: 13,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+            Icon(icon, size: 13, color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 4),
             Expanded(
               child: Text(
                 label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: Colors.grey[600],
                   fontSize: 11,
                 ),
               ),
@@ -1234,7 +1411,8 @@ class OrderDetailsScreen extends StatelessWidget {
           value,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             fontWeight: FontWeight.w700,
-            fontSize: 13,
+            fontSize: 14,
+            color: Colors.grey[900],
           ),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
@@ -1280,9 +1458,10 @@ class OrderDetailsScreen extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           title,
-          style: Theme.of(
-            context,
-          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 15),
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
         ),
         const Spacer(),
         if (badge.isNotEmpty)
@@ -1294,9 +1473,10 @@ class OrderDetailsScreen extends StatelessWidget {
             ),
             child: Text(
               badge,
-              style: Theme.of(
-                context,
-              ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
             ),
           ),
       ],
@@ -1314,9 +1494,9 @@ class OrderDetailsScreen extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: color[300]!, width: 1),
+        side: BorderSide(color: Colors.grey[200]!, width: 0.8),
       ),
-      color: color[50],
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(10),
         child: Column(
@@ -1329,7 +1509,7 @@ class OrderDetailsScreen extends StatelessWidget {
                   title,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w700,
-                    fontSize: 15,
+                    fontSize: 16,
                   ),
                 ),
                 if (data['status'] != null)
@@ -1339,7 +1519,7 @@ class OrderDetailsScreen extends StatelessWidget {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(data['status']).withOpacity(0.2),
+                      color: _getStatusColor(data['status']).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(5),
                     ),
                     child: Text(
@@ -1358,9 +1538,9 @@ class OrderDetailsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.65),
+                  color: Colors.grey[100],
                   borderRadius: BorderRadius.circular(7),
-                  border: Border.all(color: color[300]!, width: 0.5),
+                  border: Border.all(color: Colors.grey[300]!, width: 0.5),
                 ),
                 child: Row(
                   children: [
@@ -1372,15 +1552,19 @@ class OrderDetailsScreen extends StatelessWidget {
                         children: [
                           Text(
                             'Address',
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              fontSize: 11,
-                            ),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  fontSize: 11,
+                                  color: Colors.grey[600],
+                                ),
                           ),
                           Text(
                             data['address'],
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontSize: 12,
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1397,22 +1581,25 @@ class OrderDetailsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.orange[50],
+                  color: Colors.grey[100],
                   borderRadius: BorderRadius.circular(7),
+                  border: Border.all(color: Colors.grey[300]!, width: 0.5),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.note_outlined,
                       size: 12,
-                      color: Colors.orange[700],
+                      color: Colors.grey[700],
                     ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         data['notes'],
-                        style: Theme.of(context).textTheme.labelSmall
-                            ?.copyWith(fontSize: 11),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          fontSize: 12,
+                          color: Colors.grey[700],
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1428,6 +1615,7 @@ class OrderDetailsScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.grey[100],
                   borderRadius: BorderRadius.circular(7),
+                  border: Border.all(color: Colors.grey[300]!, width: 0.5),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1438,14 +1626,15 @@ class OrderDetailsScreen extends StatelessWidget {
                         child: Text(
                           'Started: ${_formatDate(data['started_at'])}',
                           style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(fontSize: 11),
+                              ?.copyWith(fontSize: 12, color: Colors.grey[700]),
                         ),
                       ),
                     if (data['completed_at'] != null)
                       Text(
                         'Completed: ${_formatDate(data['completed_at'])}',
-                        style: Theme.of(context).textTheme.labelSmall
-                            ?.copyWith(fontSize: 11),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.labelSmall?.copyWith(fontSize: 11),
                       ),
                   ],
                 ),
@@ -1475,18 +1664,25 @@ class OrderDetailsScreen extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               fontWeight: isTotal || isHighlight
                   ? FontWeight.w700
-                  : FontWeight.normal,
-              fontSize: isTotal ? 15 : 14,
+                  : (isHighlight ? FontWeight.w600 : FontWeight.normal),
+              fontSize: isTotal ? 16 : (isHighlight ? 15 : 13),
+              color: isHighlight ? Colors.grey[800] : Colors.grey[700],
             ),
           ),
           Text(
             value,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontWeight: isTotal ? FontWeight.w700 : FontWeight.w600,
+              fontWeight: isTotal
+                  ? FontWeight.w800
+                  : (isHighlight || isNegative
+                        ? FontWeight.w700
+                        : FontWeight.w600),
               color: isNegative
                   ? Colors.red[700]
-                  : (isTotal ? Colors.green[700] : null),
-              fontSize: isTotal ? 15 : 14,
+                  : (isTotal
+                        ? Colors.green[700]
+                        : (isHighlight ? Colors.grey[800] : Colors.grey[700])),
+              fontSize: isTotal ? 16 : (isHighlight ? 15 : 13),
             ),
           ),
         ],
