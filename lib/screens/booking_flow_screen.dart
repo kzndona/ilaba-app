@@ -123,16 +123,47 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
     final state = context.read<BookingStateNotifier>();
     switch (_pages[_currentPage]) {
       case BookingPane.handling:
-        // Handling is optional - allow proceeding
-        return true;
+        // Both pickup and delivery addresses must be filled
+        return state.handling.pickupAddress.isNotEmpty &&
+            state.handling.deliveryAddress.isNotEmpty;
       case BookingPane.basket:
-        return state.baskets.isNotEmpty &&
-            state.baskets.any(
-              (b) => b.washCount > 0 || b.dryCount > 0 || b.iron || b.fold,
-            );
+        // At least one basket must have weight > 0 AND have services
+        if (state.baskets.isEmpty) return false;
+        
+        // Check that all baskets with weight have services (no incomplete baskets)
+        for (final basket in state.baskets) {
+          if (basket.weightKg > 0) {
+            final hasService = basket.washCount > 0 ||
+                basket.dryCount > 0 ||
+                basket.spinCount > 0 ||
+                basket.iron ||
+                basket.fold;
+            if (!hasService) return false;
+          }
+        }
+        
+        // Check that at least one basket has weight and services
+        final hasValidBasket = state.baskets.any((basket) {
+          if (basket.weightKg <= 0) return false;
+          return basket.washCount > 0 ||
+              basket.dryCount > 0 ||
+              basket.spinCount > 0 ||
+              basket.iron ||
+              basket.fold;
+        });
+        return hasValidBasket;
       case BookingPane.products:
-        // Allow proceeding to payment even if no products are added
-        return true;
+        // Check if there is at least one valid basket (>0kg with services)
+        if (state.baskets.isEmpty) return false;
+        final hasValidBasket = state.baskets.any((basket) {
+          if (basket.weightKg <= 0) return false;
+          return basket.washCount > 0 ||
+              basket.dryCount > 0 ||
+              basket.spinCount > 0 ||
+              basket.iron ||
+              basket.fold;
+        });
+        return hasValidBasket;
       case BookingPane.receipt:
         return true;
     }
@@ -218,32 +249,41 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
                     const SizedBox(width: 12),
                     // Next/Submit button
                     Expanded(
-                      child: ElevatedButton(
-                        onPressed: _currentPage < _pages.length - 1
-                            ? _canGoNext()
-                                  ? _goToNextPage
-                                  : null
-                            : (_isSubmitting ? null : _submitOrder),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child:
-                            _isSubmitting && _currentPage == _pages.length - 1
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white,
+                      child: Consumer<BookingStateNotifier>(
+                        builder: (context, bookingState, _) {
+                          bool submitDisabled = false;
+                          if (_currentPage == _pages.length - 1) {
+                            // On receipt page: disable if no receipt uploaded
+                            submitDisabled = bookingState.gcashReceiptUrl == null;
+                          }
+                          return ElevatedButton(
+                            onPressed: _currentPage < _pages.length - 1
+                                ? _canGoNext()
+                                      ? _goToNextPage
+                                      : null
+                                : (submitDisabled || _isSubmitting ? null : _submitOrder),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child:
+                                _isSubmitting && _currentPage == _pages.length - 1
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : Text(
+                                    _currentPage == _pages.length - 1
+                                        ? 'Submit'
+                                        : 'Next',
                                   ),
-                                ),
-                              )
-                            : Text(
-                                _currentPage == _pages.length - 1
-                                    ? 'Submit'
-                                    : 'Next',
-                              ),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -412,9 +452,11 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
           (p) => p.id == entry.key,
         );
         final subtotal = product.unitPrice * entry.value;
+        debugPrint('📦 Product: id=${product.id}, name="${product.itemName}", price=${product.unitPrice}');
         products.add(
           BackendProductPayload(
             productId: product.id,
+            productName: product.itemName.isNotEmpty ? product.itemName : 'Product ${product.id}',
             quantity: entry.value,
             unitPrice: product.unitPrice,
             subtotal: subtotal,

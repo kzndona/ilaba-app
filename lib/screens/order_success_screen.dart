@@ -190,41 +190,6 @@ class OrderSuccessScreen extends StatelessWidget {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      'Tier Level:',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall,
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: _getTierColor(
-                                          loyaltyProvider.tierLevel,
-                                        ),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        loyaltyProvider.tierLevel.toUpperCase(),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall
-                                            ?.copyWith(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
                               ],
                             );
                           },
@@ -309,21 +274,6 @@ class OrderSuccessScreen extends StatelessWidget {
                     ),
                     child: const Text('Return to Home'),
                   ),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: () {
-                      // TODO: Navigate to order tracking/details screen
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Order tracking coming soon'),
-                        ),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: const Text('View Order Details'),
-                  ),
                 ],
               ),
             ),
@@ -372,19 +322,5 @@ class OrderSuccessScreen extends StatelessWidget {
       ],
     );
   }
-
-  /// Get color for loyalty tier badge
-  Color _getTierColor(String tier) {
-    switch (tier.toLowerCase()) {
-      case 'platinum':
-        return Colors.cyan;
-      case 'gold':
-        return Colors.amber;
-      case 'silver':
-        return Colors.grey;
-      case 'bronze':
-      default:
-        return Colors.brown;
-    }
-  }
 }
+

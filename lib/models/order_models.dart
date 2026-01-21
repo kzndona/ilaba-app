@@ -426,12 +426,14 @@ class BackendBasketPayload {
 
 class BackendProductPayload {
   final String productId;
+  final String productName;
   final int quantity;
   final double unitPrice;
   final double subtotal;
 
   BackendProductPayload({
     required this.productId,
+    required this.productName,
     required this.quantity,
     required this.unitPrice,
     required this.subtotal,
@@ -440,6 +442,7 @@ class BackendProductPayload {
   Map<String, dynamic> toJson() {
     return {
       'product_id': productId,
+      'product_name': productName,
       'quantity': quantity,
       'unit_price': unitPrice,
       'subtotal': subtotal,
@@ -526,7 +529,7 @@ class CreateOrderPayload {
           'subtotal': p.subtotal,
           'product_id': p.productId,
           'unit_price': p.unitPrice,
-          'product_name': '', // Product name not available in payload
+          'product_name': p.productName,
         };
       }).toList(),
       'baskets': baskets.asMap().entries.map((entry) {

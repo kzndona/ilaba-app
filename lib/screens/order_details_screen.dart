@@ -35,10 +35,15 @@ class OrderDetailsScreen extends StatelessWidget {
   /// Format currency consistently (always 2 decimals)
   String _formatCurrency(dynamic amount) {
     if (amount == null) return '₱0.00';
-    final value = amount is String
-        ? double.tryParse(amount) ?? 0
-        : (amount as num).toDouble();
-    return '₱${value.toStringAsFixed(2)}';
+    if (amount is String) {
+      return '₱${(double.tryParse(amount) ?? 0).toStringAsFixed(2)}';
+    } else if (amount is num) {
+      return '₱${(amount as num).toDouble().toStringAsFixed(2)}';
+    } else if (amount is Map) {
+      // Handle Map case - return default
+      return '₱0.00';
+    }
+    return '₱0.00';
   }
 
   /// Format JSON label to readable text (e.g., 'subtotal_products' -> 'Subtotal (Products)')
@@ -323,6 +328,7 @@ class OrderDetailsScreen extends StatelessWidget {
                                 ],
                               ),
                               if (item['discount'] != null &&
+                                  item['discount'] is num &&
                                   (item['discount'] as num) > 0) ...[
                                 const SizedBox(height: 4),
                                 Container(

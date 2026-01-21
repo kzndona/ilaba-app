@@ -101,16 +101,6 @@ class _LoyaltyProgramScreenState extends State<LoyaltyProgramScreen> {
                                 color: Colors.white,
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              loyaltyProvider.tierLevel.toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 2,
-                              ),
-                            ),
                           ],
                         ),
                       ),

@@ -108,7 +108,7 @@ class CreateOrderPayload {
     this.pickupAddress,
     this.deliveryAddress,
     this.shippingFee = 0,
-    this.source = 'mobile',
+    this.source = 'app',
   });
 
   Map<String, dynamic> toJson() {

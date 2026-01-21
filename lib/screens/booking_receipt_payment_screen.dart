@@ -89,13 +89,6 @@ class _BookingReceiptPaymentScreenState
         setState(() {
           _isUploading = false;
         });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Receipt uploaded successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
       } else {
         setState(() {
           _uploadError = 'Upload failed. Please try again.';
@@ -321,7 +314,7 @@ class _BookingReceiptPaymentScreenState
                         ],
 
                         // Loyalty Discount Section
-                        if (receipt.loyaltyPoints >= 10) ...[
+                        if (receipt.loyaltyPoints > 0) ...[
                           const SizedBox(height: 12),
                           const Divider(),
                           const SizedBox(height: 12),
@@ -547,6 +540,112 @@ class _BookingReceiptPaymentScreenState
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
+
+                // Handling & Delivery Details
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'HANDLING & DELIVERY',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const Divider(),
+                        const SizedBox(height: 12),
+                        
+                        // Pickup
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on,
+                                  size: 16,
+                                  color: colorScheme.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Pickup:',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 24),
+                              child: Consumer<BookingStateNotifier>(
+                                builder: (context, bookingState, _) {
+                                  return Text(
+                                    bookingState.handling.pickupAddress.isEmpty
+                                        ? '(Not specified)'
+                                        : bookingState.handling.pickupAddress,
+                                    style: const TextStyle(fontSize: 12),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        
+                        // Delivery
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.local_shipping,
+                                  size: 16,
+                                  color: colorScheme.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Delivery:',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 24),
+                              child: Consumer<BookingStateNotifier>(
+                                builder: (context, bookingState, _) {
+                                  if (!bookingState.handling.deliver) {
+                                    return const Text(
+                                      'Not included in this order',
+                                      style: TextStyle(fontSize: 12),
+                                    );
+                                  }
+                                  return Text(
+                                    bookingState.handling.deliveryAddress.isEmpty
+                                        ? '(Not specified)'
+                                        : bookingState.handling.deliveryAddress,
+                                    style: const TextStyle(fontSize: 12),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 24),
 
                 // GCash Payment Section
@@ -685,7 +784,7 @@ class _BookingReceiptPaymentScreenState
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
                                           valueColor: AlwaysStoppedAnimation(
-                                            colorScheme.onPrimary,
+                                            Colors.white,
                                           ),
                                         ),
                                       )
@@ -696,14 +795,21 @@ class _BookingReceiptPaymentScreenState
                                       : (hasReceipt
                                             ? 'Change Receipt'
                                             : 'Upload Receipt'),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: hasReceipt
-                                      ? Colors.green
+                                      ? Colors.green.shade600
                                       : colorScheme.primary,
+                                  foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 12,
+                                    horizontal: 16,
                                   ),
+                                  elevation: hasReceipt ? 4 : 2,
                                 ),
                               ),
                             ],
