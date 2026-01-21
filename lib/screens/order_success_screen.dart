@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:ilaba/providers/loyalty_provider.dart';
 
 class OrderSuccessScreen extends StatelessWidget {
   final String orderId;
@@ -155,6 +157,83 @@ class OrderSuccessScreen extends StatelessWidget {
                                 ),
                           ),
                         ),
+                        const SizedBox(height: 16),
+
+                        // Loyalty Points Section
+                        Consumer<LoyaltyProvider>(
+                          builder: (context, loyaltyProvider, _) {
+                            if (!loyaltyProvider.hasCard) {
+                              return const SizedBox.shrink();
+                            }
+                            return Column(
+                              children: [
+                                Divider(
+                                  color: colorScheme.outline,
+                                  height: 20,
+                                ),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      '💰 Loyalty Points:',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium,
+                                    ),
+                                    Text(
+                                      '${loyaltyProvider.pointsBalance}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: colorScheme.primary,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Tier Level:',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall,
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _getTierColor(
+                                          loyaltyProvider.tierLevel,
+                                        ),
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        loyaltyProvider.tierLevel
+                                            .toUpperCase(),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelSmall
+                                            ?.copyWith(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -298,4 +377,20 @@ class OrderSuccessScreen extends StatelessWidget {
       ],
     );
   }
+
+  /// Get color for loyalty tier badge
+  Color _getTierColor(String tier) {
+    switch (tier.toLowerCase()) {
+      case 'platinum':
+        return Colors.cyan;
+      case 'gold':
+        return Colors.amber;
+      case 'silver':
+        return Colors.grey;
+      case 'bronze':
+      default:
+        return Colors.brown;
+    }
+  }
 }
+

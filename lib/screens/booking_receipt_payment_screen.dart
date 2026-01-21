@@ -320,30 +320,227 @@ class _BookingReceiptPaymentScreenState
                           ),
                         ],
 
+                        // Loyalty Discount Section
+                        if (receipt.loyaltyPoints >= 3) ...[
+                          const SizedBox(height: 12),
+                          const Divider(),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer
+                                  .withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: colorScheme.primary.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '💰 Loyalty Points: ${receipt.loyaltyPoints}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: colorScheme.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Consumer<BookingStateNotifier>(
+                                          builder: (context, bookingState, _) {
+                                            final availableTiers =
+                                                bookingState
+                                                    .getAvailableLoyaltyTiers();
+                                            if (availableTiers.isEmpty) {
+                                              return const Text(
+                                                'Need 3 points for discount',
+                                                style: TextStyle(fontSize: 11),
+                                              );
+                                            }
+
+                                            return Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: availableTiers
+                                                  .entries
+                                                  .map((entry) {
+                                                final points = entry.key;
+                                                final percentage = entry.value;
+                                                final discountAmt = receipt
+                                                        .total *
+                                                    (percentage / 100);
+                                                final isBestDeal =
+                                                    points == 4;
+
+                                                return Text(
+                                                  '• $points points: $percentage% off (Save ₱${discountAmt.toStringAsFixed(2)})${isBestDeal ? ' ⭐ Best' : ''}',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: colorScheme.primary,
+                                                  ),
+                                                );
+                                              }).toList(),
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                    Consumer<BookingStateNotifier>(
+                                      builder: (context, bookingState, _) {
+                                        final availableTiers = bookingState
+                                            .getAvailableLoyaltyTiers();
+                                        if (availableTiers.isEmpty) {
+                                          return const SizedBox.shrink();
+                                        }
+
+                                        return GestureDetector(
+                                          onTap: () {
+                                            bookingState
+                                                .toggleLoyaltyDiscount();
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 8,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: bookingState
+                                                      .loyaltyToggleEnabled
+                                                  ? colorScheme.primary
+                                                  : colorScheme.surface,
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                              border: Border.all(
+                                                color: colorScheme.primary,
+                                                width: 1.5,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              bookingState.loyaltyToggleEnabled
+                                                  ? '✓ Apply'
+                                                  : 'Apply',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: bookingState
+                                                        .loyaltyToggleEnabled
+                                                    ? colorScheme.onPrimary
+                                                    : colorScheme.primary,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                // Show applied discount
+                                Consumer<BookingStateNotifier>(
+                                  builder: (context, bookingState, _) {
+                                    if (!bookingState.loyaltyToggleEnabled ||
+                                        bookingState.loyaltyPointsUsed == 0) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    return Padding(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: Text(
+                                        '✅ ${bookingState.loyaltyPointsUsed} points applied: ${bookingState.loyaltyDiscountPercentage}% off',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.green[700],
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
                         const SizedBox(height: 12),
                         const Divider(),
                         const SizedBox(height: 12),
 
-                        // Total
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'TOTAL:',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              '₱${receipt.total.toStringAsFixed(2)}',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                          ],
+                        // Total (with loyalty discount if applied)
+                        Consumer<BookingStateNotifier>(
+                          builder: (context, bookingState, _) {
+                            final finalTotal =
+                                bookingState.getFinalTotalWithLoyalty();
+                            return Column(
+                              children: [
+                                if (bookingState.loyaltyToggleEnabled &&
+                                    bookingState.loyaltyPointsUsed > 0) ...[
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text('Subtotal:'),
+                                      Text(
+                                        '₱${receipt.total.toStringAsFixed(2)}',
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Loyalty Discount (${bookingState.loyaltyDiscountPercentage}%):',
+                                        style: TextStyle(
+                                          color: Colors.green[700],
+                                        ),
+                                      ),
+                                      Text(
+                                        '-₱${bookingState.loyaltyDiscountAmount.toStringAsFixed(2)}',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green[700],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Divider(),
+                                  const SizedBox(height: 8),
+                                ],
+                                // Final Total
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'TOTAL:',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      '₱${finalTotal.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: colorScheme.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -392,10 +589,16 @@ class _BookingReceiptPaymentScreenState
                               colorScheme,
                             ),
                             const SizedBox(height: 12),
-                            _buildStepItem(
-                              '2',
-                              'Send ₱${receipt.total.toStringAsFixed(2)} to the store',
-                              colorScheme,
+                            Consumer<BookingStateNotifier>(
+                              builder: (context, bookingState, _) {
+                                final finalAmount =
+                                    bookingState.getFinalTotalWithLoyalty();
+                                return _buildStepItem(
+                                  '2',
+                                  'Send ₱${finalAmount.toStringAsFixed(2)} to the store',
+                                  colorScheme,
+                                );
+                              },
                             ),
                             const SizedBox(height: 12),
                             _buildStepItem(

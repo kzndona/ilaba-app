@@ -457,6 +457,9 @@ class CreateOrderPayload {
   final double shippingFee;
   final String source;
   final String? gcashReceiptUrl;
+  final int loyaltyPointsUsed;
+  final double loyaltyDiscountAmount;
+  final int loyaltyDiscountPercentage;
 
   CreateOrderPayload({
     required this.customerId,
@@ -468,6 +471,9 @@ class CreateOrderPayload {
     this.shippingFee = 0,
     this.source = 'app',
     this.gcashReceiptUrl,
+    this.loyaltyPointsUsed = 0,
+    this.loyaltyDiscountAmount = 0,
+    this.loyaltyDiscountPercentage = 0,
   });
 
   Map<String, dynamic> toJson() {
@@ -478,6 +484,9 @@ class CreateOrderPayload {
         ? 10.0
         : 0.0; // Service fee for baskets
     final vatAmount = total * (12 / 112); // 12% VAT (inclusive model)
+
+    // Calculate final total AFTER loyalty discount
+    final finalTotal = loyaltyPointsUsed > 0 ? total - loyaltyDiscountAmount : total;
 
     // Build handling JSONB structure (matches POS format)
     final handling = {
@@ -551,17 +560,17 @@ class CreateOrderPayload {
       'payment': {
         'change': 0.0,
         'method': 'gcash',
-        'amount_paid': total,
+        'amount_paid': finalTotal,
         'completed_at': DateTime.now().toIso8601String(),
         'payment_status': 'successful',
       },
       'summary': {
         'handling': shippingFee,
         'vat_rate': 12,
-        'discounts': null,
+        'discounts': loyaltyPointsUsed > 0 ? loyaltyDiscountAmount : null,
         'vat_model': 'inclusive',
         'vat_amount': vatAmount,
-        'grand_total': total,
+        'grand_total': finalTotal,
         'service_fee': serviceFee,
         'subtotal_products': subtotalProducts,
         'subtotal_services': subtotalServices,
@@ -573,7 +582,19 @@ class CreateOrderPayload {
           'changed_by': customerId,
         },
       ],
-      'discounts': null,
+      'discounts': loyaltyPointsUsed > 0
+          ? [
+              {
+                'id': _generateId(),
+                'type': 'loyalty',
+                'applied_to': 'order_total',
+                'value_type': 'percentage',
+                'value': loyaltyDiscountPercentage,
+                'reason': 'Loyalty points redemption',
+                'applied_amount': loyaltyDiscountAmount,
+              },
+            ]
+          : null,
       'fees': [
         if (serviceFee > 0)
           {
@@ -599,11 +620,14 @@ class CreateOrderPayload {
       'customer_id': customerId,
       'cashier_id': null, // Mobile orders have no cashier initially
       'status': 'pending', // Mobile orders start as pending
-      'total_amount': total,
+      'total_amount': finalTotal, // MUST be total AFTER loyalty discount
       'breakdown': breakdown,
       'handling': handling,
       'order_note': null,
       if (gcashReceiptUrl != null) 'gcash_receipt_url': gcashReceiptUrl,
+      if (loyaltyPointsUsed > 0) 'loyaltyPointsUsed': loyaltyPointsUsed,
+      if (loyaltyDiscountAmount > 0) 'loyaltyDiscountAmount': loyaltyDiscountAmount,
+      if (loyaltyDiscountPercentage > 0) 'loyaltyDiscountPercentage': loyaltyDiscountPercentage,
     };
   }
 }
@@ -629,6 +653,9 @@ class CreateOrderRequest {
         'payments': [
           {'amount': orderPayload.total, 'method': 'gcash'},
         ],
+        if (orderPayload.loyaltyPointsUsed > 0) 'loyaltyPointsUsed': orderPayload.loyaltyPointsUsed,
+        if (orderPayload.loyaltyDiscountAmount > 0) 'loyaltyDiscountAmount': orderPayload.loyaltyDiscountAmount,
+        if (orderPayload.loyaltyDiscountPercentage > 0) 'loyaltyDiscountPercentage': orderPayload.loyaltyDiscountPercentage,
       },
     };
   }

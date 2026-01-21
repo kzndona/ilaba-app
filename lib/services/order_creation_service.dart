@@ -26,6 +26,10 @@ class OrderCreationServiceImpl implements OrderCreationService {
         '👤 Creating order for customer: ${request.orderPayload.customerId}',
       );
 
+      debugPrint(
+        '🎁 Loyalty info - Points used: ${request.orderPayload.loyaltyPointsUsed}, Discount: ${request.orderPayload.loyaltyDiscountPercentage}%, Amount: ₱${request.orderPayload.loyaltyDiscountAmount}',
+      );
+
       // Build the transactional request with customer and orderPayload in POS format
       // API expects: { customer: {...}, orderPayload: {...} }
       final transactionalPayload = {

@@ -149,4 +149,22 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
   }
+
+  // Refresh user data (including loyalty points after order creation)
+  Future<void> refreshUser() async {
+    try {
+      debugPrint('🔄 AuthProvider: Refreshing user data...');
+      final user = await authService.getCurrentUser();
+      if (user != null) {
+        _currentUser = user;
+        debugPrint('✅ AuthProvider: User data refreshed - Loyalty points: ${user.loyaltyPoints}');
+        notifyListeners();
+      } else {
+        debugPrint('⚠️ AuthProvider: Could not refresh user - returned null');
+      }
+    } catch (e) {
+      debugPrint('❌ AuthProvider: Error refreshing user: $e');
+      _errorMessage = e.toString();
+    }
+  }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:ilaba/providers/booking_state_provider.dart';
 import 'package:ilaba/providers/auth_provider.dart';
+import 'package:ilaba/providers/loyalty_provider.dart';
 import 'package:ilaba/models/pos_types.dart';
 import 'package:ilaba/models/order_models.dart';
 import 'package:ilaba/screens/booking_handling_screen.dart';
@@ -46,8 +47,8 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
     super.initState();
     _pageController = PageController();
 
-    // Initialize with current user's information
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Initialize with current user's information and fetch fresh loyalty points
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final authProvider = context.read<AuthProvider>();
       final bookingProvider = context.read<BookingStateNotifier>();
       final user = authProvider.currentUser;
@@ -62,6 +63,12 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
           address: user.address,
         );
         bookingProvider.setCustomer(customer);
+      }
+      
+      // Fresh pull of loyalty points from auth provider every time screen opens
+      if (user != null) {
+        debugPrint('📱 BookingFlowScreen OPENED - Fetching fresh loyalty points');
+        await _refreshLoyaltyPoints(user.id, bookingProvider, authProvider);
       }
     });
   }
@@ -87,6 +94,26 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
+    }
+  }
+
+  /// Fetch updated loyalty points from loyalty service
+  Future<void> _refreshLoyaltyPoints(
+    String customerId,
+    BookingStateNotifier bookingProvider,
+    AuthProvider authProvider,
+  ) async {
+    try {
+      debugPrint('🎁 PULLING loyalty points from loyalty service');
+      
+      final loyaltyProvider = context.read<LoyaltyProvider>();
+      await loyaltyProvider.fetchLoyaltyCard(customerId);
+      
+      final loyaltyPoints = loyaltyProvider.pointsBalance;
+      bookingProvider.setLoyaltyPointsBalance(loyaltyPoints);
+      debugPrint('✅ LOYALTY POINTS SET: $loyaltyPoints points');
+    } catch (e) {
+      debugPrint('❌ ERROR accessing loyalty points: $e');
     }
   }
 
@@ -396,6 +423,13 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
 
       // Create order payload for backend API
       currentStep = 'Creating order payload';
+      debugPrint('🎁 Loyalty state - Points: ${bookingState.loyaltyPointsUsed}, Discount %: ${bookingState.loyaltyDiscountPercentage}, Amount: ₱${bookingState.loyaltyDiscountAmount.toStringAsFixed(2)}');
+      
+      final finalTotal = bookingState.loyaltyPointsUsed > 0 
+        ? receipt.total - bookingState.loyaltyDiscountAmount
+        : receipt.total;
+      debugPrint('💰 Original total: ₱${receipt.total.toStringAsFixed(2)}, Final total: ₱${finalTotal.toStringAsFixed(2)}');
+      
       final orderPayload = CreateOrderPayload(
         customerId: user.id,
         total: receipt.total,
@@ -406,6 +440,9 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
         shippingFee: bookingState.handling.deliver ? 50.0 : 0.0,
         source: 'app',
         gcashReceiptUrl: bookingState.gcashReceiptUrl,
+        loyaltyPointsUsed: bookingState.loyaltyPointsUsed,
+        loyaltyDiscountAmount: bookingState.loyaltyDiscountAmount,
+        loyaltyDiscountPercentage: bookingState.loyaltyDiscountPercentage,
       );
       debugPrint('✓ Order payload created');
 
@@ -442,6 +479,16 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
         currentStep = 'Resetting booking state';
         // Reset booking state
         bookingState.resetForNewOrder();
+
+        currentStep = 'Refreshing loyalty points';
+        // Refresh loyalty points after successful order
+        try {
+          final loyaltyProvider = context.read<LoyaltyProvider>();
+          await loyaltyProvider.refreshLoyaltyCard(user.id);
+          debugPrint('✓ Loyalty points refreshed after order');
+        } catch (e) {
+          debugPrint('⚠️ Could not refresh loyalty points: $e');
+        }
 
         currentStep = 'Navigating to success screen';
         // Navigate to success screen

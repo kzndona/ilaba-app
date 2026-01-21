@@ -4,8 +4,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:ilaba/providers/auth_provider.dart';
 import 'package:ilaba/providers/booking_state_provider.dart';
+import 'package:ilaba/providers/loyalty_provider.dart';
 import 'package:ilaba/services/auth_service.dart';
 import 'package:ilaba/services/pos_service_impl.dart';
+import 'package:ilaba/services/loyalty_service.dart';
 import 'package:ilaba/screens/login_screen.dart';
 import 'package:ilaba/screens/home_menu_screen.dart';
 
@@ -45,9 +47,16 @@ class MyApp extends StatelessWidget {
         Provider<AuthService>(
           create: (_) => AuthServiceImpl(supabaseClient: supabaseClient),
         ),
+        Provider<LoyaltyService>(
+          create: (_) => LoyaltyServiceImpl(supabaseClient: supabaseClient),
+        ),
         ChangeNotifierProvider<AuthProvider>(
           create: (context) =>
               AuthProvider(authService: context.read<AuthService>()),
+        ),
+        ChangeNotifierProvider<LoyaltyProvider>(
+          create: (context) =>
+              LoyaltyProvider(loyaltyService: context.read<LoyaltyService>()),
         ),
         ChangeNotifierProvider<BookingStateNotifier>(
           create: (_) => BookingStateNotifier(SupabasePOSService()),

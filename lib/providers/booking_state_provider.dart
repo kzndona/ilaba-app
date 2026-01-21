@@ -53,6 +53,10 @@ class ReceiptSummary {
   final double total;
   final List<ReceiptProductLine> productLines;
   final List<ReceiptBasketLine> basketLines;
+  final int loyaltyPoints;
+  final int loyaltyPointsUsed;
+  final double loyaltyDiscountAmount;
+  final int loyaltyDiscountPercentage;
 
   ReceiptSummary({
     required this.productSubtotal,
@@ -63,6 +67,10 @@ class ReceiptSummary {
     required this.total,
     required this.productLines,
     required this.basketLines,
+    this.loyaltyPoints = 0,
+    this.loyaltyPointsUsed = 0,
+    this.loyaltyDiscountAmount = 0,
+    this.loyaltyDiscountPercentage = 0,
   });
 }
 
@@ -84,6 +92,13 @@ class BookingStateNotifier extends ChangeNotifier {
 
   // --- Product orders ---
   Map<String, int> orderProductCounts = {};
+
+  // --- Loyalty System ---
+  int loyaltyPointsBalance = 0; // Customer's current points balance
+  int loyaltyPointsUsed = 0; // Points selected for this order (0, 3, or 4)
+  double loyaltyDiscountAmount = 0; // Calculated discount in PHP
+  int loyaltyDiscountPercentage = 0; // Discount % (10 or 15)
+  bool loyaltyToggleEnabled = false; // User toggled discount ON/OFF
 
   // --- UI State ---
   HandlingState handling = HandlingState();
@@ -169,7 +184,100 @@ class BookingStateNotifier extends ChangeNotifier {
   /// Set customer (called from auth context)
   void setCustomer(Customer? cust) {
     customer = cust;
+    // Reset loyalty when customer changes
+    resetLoyaltyState();
     notifyListeners();
+  }
+
+  // ============================================================================
+  // LOYALTY MANAGEMENT
+  // ============================================================================
+
+  /// Set customer's loyalty points balance (fetched from API)
+  void setLoyaltyPointsBalance(int points) {
+    loyaltyPointsBalance = points;
+    notifyListeners();
+  }
+
+  /// Calculate and apply loyalty discount
+  void applyLoyaltyDiscount(int pointsToUse) {
+    if (pointsToUse == 0) {
+      resetLoyaltyState();
+      return;
+    }
+
+    // Validate points
+    if (pointsToUse != 3 && pointsToUse != 4) {
+      debugPrint('❌ Invalid loyalty points: $pointsToUse (must be 3 or 4)');
+      return;
+    }
+
+    if (pointsToUse > loyaltyPointsBalance) {
+      debugPrint(
+        '❌ Not enough loyalty points: have $loyaltyPointsBalance, need $pointsToUse',
+      );
+      return;
+    }
+
+    // Calculate discount
+    final receipt = computeReceipt();
+    final baseTotal = receipt.total; // Final total
+    final percentage = pointsToUse == 3 ? 10 : 15;
+    final discountAmount = baseTotal * (percentage / 100);
+
+    loyaltyPointsUsed = pointsToUse;
+    loyaltyDiscountPercentage = percentage;
+    loyaltyDiscountAmount = discountAmount;
+    loyaltyToggleEnabled = true;
+
+    debugPrint(
+      '✅ Loyalty discount applied: $pointsToUse points = $percentage% off = ₱${discountAmount.toStringAsFixed(2)}',
+    );
+    notifyListeners();
+  }
+
+  /// Toggle loyalty discount on/off
+  void toggleLoyaltyDiscount() {
+    if (!loyaltyToggleEnabled) {
+      // If enabled points selected, use 4-point tier by default
+      if (loyaltyPointsBalance >= 4) {
+        applyLoyaltyDiscount(4);
+      } else if (loyaltyPointsBalance >= 3) {
+        applyLoyaltyDiscount(3);
+      }
+    } else {
+      resetLoyaltyState();
+    }
+  }
+
+  /// Reset loyalty state for new order
+  void resetLoyaltyState() {
+    loyaltyPointsUsed = 0;
+    loyaltyDiscountAmount = 0;
+    loyaltyDiscountPercentage = 0;
+    loyaltyToggleEnabled = false;
+    notifyListeners();
+  }
+
+  /// Get available loyalty tiers for UI display
+  Map<int, int> getAvailableLoyaltyTiers() {
+    final tiers = <int, int>{}; // points -> percentage
+    if (loyaltyPointsBalance >= 4) {
+      tiers[4] = 15; // Best deal
+    }
+    if (loyaltyPointsBalance >= 3) {
+      tiers[3] = 10;
+    }
+    return tiers;
+  }
+
+  /// Get final total with loyalty discount applied
+  double getFinalTotalWithLoyalty() {
+    final receipt = computeReceipt();
+    if (loyaltyToggleEnabled && loyaltyPointsUsed > 0) {
+      return receipt.total - loyaltyDiscountAmount;
+    }
+    return receipt.total;
   }
 
   // ============================================================================
@@ -405,6 +513,10 @@ class BookingStateNotifier extends ChangeNotifier {
       total: total,
       productLines: productLines,
       basketLines: basketLines,
+      loyaltyPoints: loyaltyPointsBalance,
+      loyaltyPointsUsed: loyaltyPointsUsed,
+      loyaltyDiscountAmount: loyaltyDiscountAmount,
+      loyaltyDiscountPercentage: loyaltyDiscountPercentage,
     );
   }
 
@@ -440,6 +552,7 @@ class BookingStateNotifier extends ChangeNotifier {
       pickupAddress: customer?.address ?? '',
     );
     gcashReceiptUrl = null; // Clear receipt
+    resetLoyaltyState(); // Clear loyalty selections
     notifyListeners();
   }
 
