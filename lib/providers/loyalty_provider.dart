@@ -34,9 +34,11 @@ class LoyaltyProvider extends ChangeNotifier {
       debugPrint('🎁 LoyaltyProvider: Fetching loyalty card for user: $userId');
       final card = await loyaltyService.getLoyaltyCard(userId);
       _loyaltyCard = card;
-      
+
       if (card != null) {
-        debugPrint('✅ LoyaltyProvider: Loyalty card loaded - Balance: ${card.pointsBalance}');
+        debugPrint(
+          '✅ LoyaltyProvider: Loyalty card loaded - Balance: ${card.pointsBalance}',
+        );
       } else {
         _errorMessage = 'No loyalty card found for user';
         debugPrint('⚠️ LoyaltyProvider: No loyalty card found');
@@ -53,12 +55,16 @@ class LoyaltyProvider extends ChangeNotifier {
   /// Refresh loyalty card from backend (useful after order creation)
   Future<void> refreshLoyaltyCard(String userId) async {
     try {
-      debugPrint('🔄 LoyaltyProvider: Refreshing loyalty card for user: $userId');
+      debugPrint(
+        '🔄 LoyaltyProvider: Refreshing loyalty card for user: $userId',
+      );
       final card = await loyaltyService.getLoyaltyCard(userId);
       _loyaltyCard = card;
-      
+
       if (card != null) {
-        debugPrint('✅ LoyaltyProvider: Loyalty card refreshed - New balance: ${card.pointsBalance}');
+        debugPrint(
+          '✅ LoyaltyProvider: Loyalty card refreshed - New balance: ${card.pointsBalance}',
+        );
       }
     } catch (e) {
       _errorMessage = e.toString();
@@ -71,8 +77,10 @@ class LoyaltyProvider extends ChangeNotifier {
   /// Redeem loyalty points
   Future<bool> redeemPoints(String userId, int points) async {
     try {
-      debugPrint('🎁 LoyaltyProvider: Redeeming $points points for user: $userId');
-      
+      debugPrint(
+        '🎁 LoyaltyProvider: Redeeming $points points for user: $userId',
+      );
+
       // Get current points
       final currentPoints = await loyaltyService.getLoyaltyPoints(userId);
       if (currentPoints == null) {
@@ -80,14 +88,16 @@ class LoyaltyProvider extends ChangeNotifier {
       }
 
       if (currentPoints < points) {
-        throw Exception('Insufficient loyalty points: have $currentPoints, need $points');
+        throw Exception(
+          'Insufficient loyalty points: have $currentPoints, need $points',
+        );
       }
 
       final newBalance = currentPoints - points;
-      
+
       // Update in database
       await loyaltyService.updateLoyaltyPoints(userId, newBalance);
-      
+
       // Update local state
       if (_loyaltyCard != null) {
         _loyaltyCard = LoyaltyCard(
@@ -100,7 +110,9 @@ class LoyaltyProvider extends ChangeNotifier {
           createdAt: _loyaltyCard!.createdAt,
           lastUpdated: DateTime.now(),
         );
-        debugPrint('✅ LoyaltyProvider: Points redeemed - New balance: $newBalance');
+        debugPrint(
+          '✅ LoyaltyProvider: Points redeemed - New balance: $newBalance',
+        );
         notifyListeners();
       }
       return true;
@@ -115,7 +127,7 @@ class LoyaltyProvider extends ChangeNotifier {
   Future<bool> addPoints(String userId, int points) async {
     try {
       debugPrint('🎁 LoyaltyProvider: Adding $points points for user: $userId');
-      
+
       // Get current points
       final currentPoints = await loyaltyService.getLoyaltyPoints(userId);
       if (currentPoints == null) {
@@ -123,10 +135,10 @@ class LoyaltyProvider extends ChangeNotifier {
       }
 
       final newBalance = currentPoints + points;
-      
+
       // Update in database
       await loyaltyService.updateLoyaltyPoints(userId, newBalance);
-      
+
       // Update local state
       if (_loyaltyCard != null) {
         _loyaltyCard = LoyaltyCard(
@@ -139,7 +151,9 @@ class LoyaltyProvider extends ChangeNotifier {
           createdAt: _loyaltyCard!.createdAt,
           lastUpdated: DateTime.now(),
         );
-        debugPrint('✅ LoyaltyProvider: Points added - New balance: $newBalance');
+        debugPrint(
+          '✅ LoyaltyProvider: Points added - New balance: $newBalance',
+        );
         notifyListeners();
       }
       return true;

@@ -17,7 +17,7 @@ class LoyaltyServiceImpl implements LoyaltyService {
   Future<LoyaltyCard?> getLoyaltyCard(String userId) async {
     try {
       debugPrint('🎁 LoyaltyService: Fetching loyalty for user: $userId');
-      
+
       // Query customers table by customer id (not auth_id)
       final response = await supabaseClient
           .from('customers')
@@ -26,14 +26,17 @@ class LoyaltyServiceImpl implements LoyaltyService {
           .single();
 
       final loyaltyPoints = response['loyalty_points'] as int? ?? 0;
-      debugPrint('✅ LoyaltyService: Retrieved loyalty points - Balance: $loyaltyPoints');
-      
+      debugPrint(
+        '✅ LoyaltyService: Retrieved loyalty points - Balance: $loyaltyPoints',
+      );
+
       // Return a LoyaltyCard object constructed from customer data
       return LoyaltyCard(
         id: response['id'] as String,
         userId: response['id'] as String,
         pointsBalance: loyaltyPoints,
-        totalPointsEarned: loyaltyPoints, // Not tracking separately in this schema
+        totalPointsEarned:
+            loyaltyPoints, // Not tracking separately in this schema
         totalPointsRedeemed: 0, // Not tracking separately in this schema
         tierLevel: _calculateTier(loyaltyPoints),
         createdAt: response['created_at'] != null
@@ -52,8 +55,10 @@ class LoyaltyServiceImpl implements LoyaltyService {
   @override
   Future<int?> getLoyaltyPoints(String userId) async {
     try {
-      debugPrint('🎁 LoyaltyService: Fetching loyalty points for user: $userId');
-      
+      debugPrint(
+        '🎁 LoyaltyService: Fetching loyalty points for user: $userId',
+      );
+
       final response = await supabaseClient
           .from('customers')
           .select('loyalty_points')
@@ -72,8 +77,10 @@ class LoyaltyServiceImpl implements LoyaltyService {
   @override
   Future<void> updateLoyaltyPoints(String userId, int newPoints) async {
     try {
-      debugPrint('🎁 LoyaltyService: Updating loyalty points for user: $userId to $newPoints');
-      
+      debugPrint(
+        '🎁 LoyaltyService: Updating loyalty points for user: $userId to $newPoints',
+      );
+
       await supabaseClient
           .from('customers')
           .update({
@@ -97,4 +104,3 @@ class LoyaltyServiceImpl implements LoyaltyService {
     return 'bronze';
   }
 }
-

@@ -486,7 +486,9 @@ class CreateOrderPayload {
     final vatAmount = total * (12 / 112); // 12% VAT (inclusive model)
 
     // Calculate final total AFTER loyalty discount
-    final finalTotal = loyaltyPointsUsed > 0 ? total - loyaltyDiscountAmount : total;
+    final finalTotal = loyaltyPointsUsed > 0
+        ? total - loyaltyDiscountAmount
+        : total;
 
     // Build handling JSONB structure (matches POS format)
     final handling = {
@@ -626,8 +628,10 @@ class CreateOrderPayload {
       'order_note': null,
       if (gcashReceiptUrl != null) 'gcash_receipt_url': gcashReceiptUrl,
       if (loyaltyPointsUsed > 0) 'loyaltyPointsUsed': loyaltyPointsUsed,
-      if (loyaltyDiscountAmount > 0) 'loyaltyDiscountAmount': loyaltyDiscountAmount,
-      if (loyaltyDiscountPercentage > 0) 'loyaltyDiscountPercentage': loyaltyDiscountPercentage,
+      if (loyaltyDiscountAmount > 0)
+        'loyaltyDiscountAmount': loyaltyDiscountAmount,
+      if (loyaltyDiscountPercentage > 0)
+        'loyaltyDiscountPercentage': loyaltyDiscountPercentage,
     };
   }
 }
@@ -653,9 +657,12 @@ class CreateOrderRequest {
         'payments': [
           {'amount': orderPayload.total, 'method': 'gcash'},
         ],
-        if (orderPayload.loyaltyPointsUsed > 0) 'loyaltyPointsUsed': orderPayload.loyaltyPointsUsed,
-        if (orderPayload.loyaltyDiscountAmount > 0) 'loyaltyDiscountAmount': orderPayload.loyaltyDiscountAmount,
-        if (orderPayload.loyaltyDiscountPercentage > 0) 'loyaltyDiscountPercentage': orderPayload.loyaltyDiscountPercentage,
+        if (orderPayload.loyaltyPointsUsed > 0)
+          'loyaltyPointsUsed': orderPayload.loyaltyPointsUsed,
+        if (orderPayload.loyaltyDiscountAmount > 0)
+          'loyaltyDiscountAmount': orderPayload.loyaltyDiscountAmount,
+        if (orderPayload.loyaltyDiscountPercentage > 0)
+          'loyaltyDiscountPercentage': orderPayload.loyaltyDiscountPercentage,
       },
     };
   }

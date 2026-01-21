@@ -167,19 +167,16 @@ class OrderSuccessScreen extends StatelessWidget {
                             }
                             return Column(
                               children: [
-                                Divider(
-                                  color: colorScheme.outline,
-                                  height: 20,
-                                ),
+                                Divider(color: colorScheme.outline, height: 20),
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       '💰 Loyalty Points:',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodyMedium,
                                     ),
                                     Text(
                                       '${loyaltyProvider.pointsBalance}',
@@ -200,9 +197,9 @@ class OrderSuccessScreen extends StatelessWidget {
                                   children: [
                                     Text(
                                       'Tier Level:',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
                                     ),
                                     Container(
                                       padding: const EdgeInsets.symmetric(
@@ -213,12 +210,10 @@ class OrderSuccessScreen extends StatelessWidget {
                                         color: _getTierColor(
                                           loyaltyProvider.tierLevel,
                                         ),
-                                        borderRadius:
-                                            BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
-                                        loyaltyProvider.tierLevel
-                                            .toUpperCase(),
+                                        loyaltyProvider.tierLevel.toUpperCase(),
                                         style: Theme.of(context)
                                             .textTheme
                                             .labelSmall
@@ -393,4 +388,3 @@ class OrderSuccessScreen extends StatelessWidget {
     }
   }
 }
-

@@ -157,7 +157,9 @@ class AuthProvider extends ChangeNotifier {
       final user = await authService.getCurrentUser();
       if (user != null) {
         _currentUser = user;
-        debugPrint('✅ AuthProvider: User data refreshed - Loyalty points: ${user.loyaltyPoints}');
+        debugPrint(
+          '✅ AuthProvider: User data refreshed - Loyalty points: ${user.loyaltyPoints}',
+        );
         notifyListeners();
       } else {
         debugPrint('⚠️ AuthProvider: Could not refresh user - returned null');

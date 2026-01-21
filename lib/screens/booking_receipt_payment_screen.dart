@@ -328,8 +328,9 @@ class _BookingReceiptPaymentScreenState
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: colorScheme.primaryContainer
-                                  .withOpacity(0.5),
+                              color: colorScheme.primaryContainer.withOpacity(
+                                0.5,
+                              ),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: colorScheme.primary.withOpacity(0.3),
@@ -358,9 +359,8 @@ class _BookingReceiptPaymentScreenState
                                         const SizedBox(height: 4),
                                         Consumer<BookingStateNotifier>(
                                           builder: (context, bookingState, _) {
-                                            final availableTiers =
-                                                bookingState
-                                                    .getAvailableLoyaltyTiers();
+                                            final availableTiers = bookingState
+                                                .getAvailableLoyaltyTiers();
                                             if (availableTiers.isEmpty) {
                                               return const Text(
                                                 'Need 3 points for discount',
@@ -371,16 +371,15 @@ class _BookingReceiptPaymentScreenState
                                             return Column(
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
-                                              children: availableTiers
-                                                  .entries
-                                                  .map((entry) {
+                                              children: availableTiers.entries.map((
+                                                entry,
+                                              ) {
                                                 final points = entry.key;
                                                 final percentage = entry.value;
-                                                final discountAmt = receipt
-                                                        .total *
+                                                final discountAmt =
+                                                    receipt.total *
                                                     (percentage / 100);
-                                                final isBestDeal =
-                                                    points == 4;
+                                                final isBestDeal = points == 4;
 
                                                 return Text(
                                                   '• $points points: $percentage% off (Save ₱${discountAmt.toStringAsFixed(2)})${isBestDeal ? ' ⭐ Best' : ''}',
@@ -414,7 +413,8 @@ class _BookingReceiptPaymentScreenState
                                               vertical: 8,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: bookingState
+                                              color:
+                                                  bookingState
                                                       .loyaltyToggleEnabled
                                                   ? colorScheme.primary
                                                   : colorScheme.surface,
@@ -432,7 +432,8 @@ class _BookingReceiptPaymentScreenState
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.bold,
-                                                color: bookingState
+                                                color:
+                                                    bookingState
                                                         .loyaltyToggleEnabled
                                                     ? colorScheme.onPrimary
                                                     : colorScheme.primary,
@@ -476,8 +477,8 @@ class _BookingReceiptPaymentScreenState
                         // Total (with loyalty discount if applied)
                         Consumer<BookingStateNotifier>(
                           builder: (context, bookingState, _) {
-                            final finalTotal =
-                                bookingState.getFinalTotalWithLoyalty();
+                            final finalTotal = bookingState
+                                .getFinalTotalWithLoyalty();
                             return Column(
                               children: [
                                 if (bookingState.loyaltyToggleEnabled &&
@@ -591,8 +592,8 @@ class _BookingReceiptPaymentScreenState
                             const SizedBox(height: 12),
                             Consumer<BookingStateNotifier>(
                               builder: (context, bookingState, _) {
-                                final finalAmount =
-                                    bookingState.getFinalTotalWithLoyalty();
+                                final finalAmount = bookingState
+                                    .getFinalTotalWithLoyalty();
                                 return _buildStepItem(
                                   '2',
                                   'Send ₱${finalAmount.toStringAsFixed(2)} to the store',

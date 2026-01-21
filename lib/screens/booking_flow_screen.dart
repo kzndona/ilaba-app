@@ -64,10 +64,12 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
         );
         bookingProvider.setCustomer(customer);
       }
-      
+
       // Fresh pull of loyalty points from auth provider every time screen opens
       if (user != null) {
-        debugPrint('📱 BookingFlowScreen OPENED - Fetching fresh loyalty points');
+        debugPrint(
+          '📱 BookingFlowScreen OPENED - Fetching fresh loyalty points',
+        );
         await _refreshLoyaltyPoints(user.id, bookingProvider, authProvider);
       }
     });
@@ -105,10 +107,10 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
   ) async {
     try {
       debugPrint('🎁 PULLING loyalty points from loyalty service');
-      
+
       final loyaltyProvider = context.read<LoyaltyProvider>();
       await loyaltyProvider.fetchLoyaltyCard(customerId);
-      
+
       final loyaltyPoints = loyaltyProvider.pointsBalance;
       bookingProvider.setLoyaltyPointsBalance(loyaltyPoints);
       debugPrint('✅ LOYALTY POINTS SET: $loyaltyPoints points');
@@ -423,13 +425,17 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
 
       // Create order payload for backend API
       currentStep = 'Creating order payload';
-      debugPrint('🎁 Loyalty state - Points: ${bookingState.loyaltyPointsUsed}, Discount %: ${bookingState.loyaltyDiscountPercentage}, Amount: ₱${bookingState.loyaltyDiscountAmount.toStringAsFixed(2)}');
-      
-      final finalTotal = bookingState.loyaltyPointsUsed > 0 
-        ? receipt.total - bookingState.loyaltyDiscountAmount
-        : receipt.total;
-      debugPrint('💰 Original total: ₱${receipt.total.toStringAsFixed(2)}, Final total: ₱${finalTotal.toStringAsFixed(2)}');
-      
+      debugPrint(
+        '🎁 Loyalty state - Points: ${bookingState.loyaltyPointsUsed}, Discount %: ${bookingState.loyaltyDiscountPercentage}, Amount: ₱${bookingState.loyaltyDiscountAmount.toStringAsFixed(2)}',
+      );
+
+      final finalTotal = bookingState.loyaltyPointsUsed > 0
+          ? receipt.total - bookingState.loyaltyDiscountAmount
+          : receipt.total;
+      debugPrint(
+        '💰 Original total: ₱${receipt.total.toStringAsFixed(2)}, Final total: ₱${finalTotal.toStringAsFixed(2)}',
+      );
+
       final orderPayload = CreateOrderPayload(
         customerId: user.id,
         total: receipt.total,
