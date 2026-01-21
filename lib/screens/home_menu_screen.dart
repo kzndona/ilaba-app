@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Container, SizedBox;
+import 'package:flutter/material.dart' as material show Container, SizedBox;
 import 'package:provider/provider.dart';
 import 'package:ilaba/providers/auth_provider.dart';
 import 'package:ilaba/screens/booking_flow_screen.dart';
@@ -52,7 +53,7 @@ class HomeMenuScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                Container(
+                material.Container(
                   height: 180,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
@@ -62,7 +63,7 @@ class HomeMenuScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const material.SizedBox(height: 20),
                 // Menu Cards
                 Expanded(
                   child: ListView(
@@ -109,7 +110,7 @@ class HomeMenuScreen extends StatelessWidget {
                         },
                       ),
 
-                      const SizedBox(height: 20),
+                      const material.SizedBox(height: 20),
 
                       // FAQ & Help Center button
                       Padding(

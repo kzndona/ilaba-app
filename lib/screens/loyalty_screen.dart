@@ -21,7 +21,9 @@ class _LoyaltyProgramScreenState extends State<LoyaltyProgramScreen> {
       final user = authProvider.currentUser;
 
       if (user != null) {
-        debugPrint('🎁 LoyaltyProgramScreen OPENED - Fetching fresh loyalty data');
+        debugPrint(
+          '🎁 LoyaltyProgramScreen OPENED - Fetching fresh loyalty data',
+        );
         await loyaltyProvider.fetchLoyaltyCard(user.id);
       }
     });
@@ -41,9 +43,7 @@ class _LoyaltyProgramScreenState extends State<LoyaltyProgramScreen> {
             elevation: 0,
           ),
           body: isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(),
-                )
+              ? const Center(child: CircularProgressIndicator())
               : Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(
@@ -52,7 +52,9 @@ class _LoyaltyProgramScreenState extends State<LoyaltyProgramScreen> {
                       const Text(
                         "Earn Discounts as You Book!",
                         style: TextStyle(
-                            fontSize: 22, fontWeight: FontWeight.bold),
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 16),
 
@@ -69,8 +71,12 @@ class _LoyaltyProgramScreenState extends State<LoyaltyProgramScreen> {
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: Color.fromARGB(255, 253, 132, 174)
-                                  .withOpacity(0.3),
+                              color: Color.fromARGB(
+                                255,
+                                253,
+                                132,
+                                174,
+                              ).withOpacity(0.3),
                               offset: const Offset(4, 4),
                               blurRadius: 12,
                             ),
@@ -113,7 +119,9 @@ class _LoyaltyProgramScreenState extends State<LoyaltyProgramScreen> {
                       const Text(
                         "Available Benefits",
                         style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 16),
 
@@ -125,16 +133,18 @@ class _LoyaltyProgramScreenState extends State<LoyaltyProgramScreen> {
                               label: "10 Points",
                               discount: "10% Discount",
                               achieved: currentPoints >= 10,
-                              progress:
-                                  (currentPoints / 10).clamp(0, 1).toDouble(),
+                              progress: (currentPoints / 10)
+                                  .clamp(0, 1)
+                                  .toDouble(),
                             ),
                             const SizedBox(height: 16),
                             _rewardCard(
                               label: "20 Points",
                               discount: "15% Discount",
                               achieved: currentPoints >= 20,
-                              progress:
-                                  (currentPoints / 20).clamp(0, 1).toDouble(),
+                              progress: (currentPoints / 20)
+                                  .clamp(0, 1)
+                                  .toDouble(),
                               isBest: true,
                             ),
                           ],
@@ -155,9 +165,11 @@ class _LoyaltyProgramScreenState extends State<LoyaltyProgramScreen> {
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.info_outline,
-                                    size: 20,
-                                    color: Colors.blue.shade700),
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 20,
+                                  color: Colors.blue.shade700,
+                                ),
                                 const SizedBox(width: 8),
                                 Text(
                                   "How to Earn Points",
@@ -208,10 +220,7 @@ class _LoyaltyProgramScreenState extends State<LoyaltyProgramScreen> {
               ),
         borderRadius: BorderRadius.circular(16),
         border: isBest && achieved
-            ? Border.all(
-                color: Colors.yellow.shade600,
-                width: 2,
-              )
+            ? Border.all(color: Colors.yellow.shade600, width: 2)
             : null,
         boxShadow: [
           BoxShadow(
