@@ -1,1698 +1,1227 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'order_details_helpers.dart';
+import 'order_details_widgets.dart';
 
-class OrderDetailsScreen extends StatelessWidget {
+class OrderDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> order;
 
   const OrderDetailsScreen({required this.order});
 
-  /// Format date to human-readable format with time
-  String _formatDate(String? dateString) {
-    if (dateString == null) return 'N/A';
+  @override
+  State<OrderDetailsScreen> createState() => _OrderDetailsScreenState();
+}
+
+class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
+  late Future<Map<String, dynamic>> _orderDataFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    print('🔵 OrderDetailsScreen initState - Order ID: ${widget.order['id']}');
+    _orderDataFuture = _fetchOrderData();
+  }
+
+  Future<void> _refreshOrderData() async {
+    setState(() {
+      _orderDataFuture = _fetchOrderData();
+    });
+    await _orderDataFuture;
+  }
+
+  Future<Map<String, dynamic>> _fetchOrderData() async {
     try {
-      final date = DateTime.parse(dateString);
-      final months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
-      final period = date.hour >= 12 ? 'PM' : 'AM';
-      final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
-      return '${months[date.month - 1]} ${date.day}, ${date.year} • ${hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')} $period';
+      print('⏳ Starting _fetchOrderData...');
+      final supabase = Supabase.instance.client;
+      final orderId = widget.order['id'];
+      print('📋 Order ID: $orderId');
+      print('📋 Customer ID: ${widget.order['customer_id']}');
+      print('📋 Staff ID: ${widget.order['staff_id']}');
+
+      // Fetch customer data
+      print('🔍 Fetching customer from customers table...');
+      final customerData = widget.order['customer_id'] != null
+          ? await supabase
+              .from('customers')
+              .select()
+              .eq('id', widget.order['customer_id'])
+              .single()
+          : null;
+      print('✅ Customer data: $customerData');
+
+      // Fetch cashier/staff data
+      print('🔍 Fetching staff from staff table...');
+      final staffData = widget.order['staff_id'] != null
+          ? await supabase
+              .from('staff')
+              .select()
+              .eq('id', widget.order['staff_id'])
+              .single()
+          : null;
+      print('✅ Staff data: $staffData');
+
+      // Extract product IDs from breakdown items
+      final breakdown = widget.order['breakdown'] as Map<String, dynamic>? ?? {};
+      final items = (breakdown['items'] as List?) ?? [];
+      final productIds = <String>[];
+      for (final item in items) {
+        final productId = (item as Map<String, dynamic>)['product_id'];
+        if (productId != null) {
+          productIds.add(productId.toString());
+        }
+      }
+
+      // Fetch product details with images
+      Map<String, dynamic> productsMap = {};
+      if (productIds.isNotEmpty) {
+        print('🔍 Fetching ${productIds.length} products from products table...');
+        final products = await supabase
+            .from('products')
+            .select()
+            .inFilter('id', productIds);
+        print('✅ Fetched products: ${products.length}');
+        for (final product in products) {
+          productsMap[product['id'].toString()] = product;
+        }
+        print('✅ Products map: $productsMap');
+      }
+
+      print('✅ All data fetched successfully!');
+
+      return {
+        'order': widget.order,
+        'customer': customerData,
+        'staff': staffData,
+        'products': productsMap,
+      };
     } catch (e) {
-      return dateString;
-    }
-  }
-
-  /// Format currency consistently (always 2 decimals)
-  String _formatCurrency(dynamic amount) {
-    if (amount == null) return '₱0.00';
-    if (amount is String) {
-      return '₱${(double.tryParse(amount) ?? 0).toStringAsFixed(2)}';
-    } else if (amount is num) {
-      return '₱${(amount as num).toDouble().toStringAsFixed(2)}';
-    } else if (amount is Map) {
-      // Handle Map case - return default
-      return '₱0.00';
-    }
-    return '₱0.00';
-  }
-
-  /// Format JSON label to readable text (e.g., 'subtotal_products' -> 'Subtotal (Products)')
-  String _formatLabel(String label) {
-    return label
-        .replaceAll('_', ' ')
-        .split(' ')
-        .map(
-          (word) => word.isEmpty
-              ? ''
-              : word[0].toUpperCase() + word.substring(1).toLowerCase(),
-        )
-        .join(' ')
-        .replaceAllMapped(
-          RegExp(r'\(([^)]+)\)'),
-          (match) => '(${match.group(1)?.toLowerCase()})',
-        );
-  }
-
-  Color _getStatusColor(String? status) {
-    switch (status?.toLowerCase()) {
-      case 'completed':
-        return Colors.green;
-      case 'pending':
-        return Colors.orange;
-      case 'processing':
-        return Colors.blue;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
+      print('❌ ERROR fetching order data: $e');
+      return {
+        'order': widget.order,
+        'customer': null,
+        'staff': null,
+        'products': {},
+      };
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final orderId = order['id'];
-    final status = order['status'] ?? 'N/A';
-    final createdAt = _formatDate(order['created_at']);
-    final breakdown = order['breakdown'] as Map<String, dynamic>? ?? {};
-    final handling = order['handling'] as Map<String, dynamic>? ?? {};
-    final cancellation = order['cancellation'] as Map<String, dynamic>?;
-    final totalAmount = _formatCurrency(order['total_amount']);
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _orderDataFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Order Details'),
+              elevation: 0,
+            ),
+            body: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
 
-    // Parse breakdown structure
-    final breakdownItems = (breakdown['items'] as List?) ?? [];
-    final breakdownBaskets = (breakdown['baskets'] as List?) ?? [];
-    final breakdownFees = (breakdown['fees'] as List?) ?? [];
-    final breakdownDiscounts = (breakdown['discounts'] as List?) ?? [];
-    final breakdownSummary =
-        (breakdown['summary'] as Map<String, dynamic>?) ?? {};
-    final breakdownPayment =
-        (breakdown['payment'] as Map<String, dynamic>?) ?? {};
-    final breakdownAuditLog = (breakdown['audit_log'] as List?) ?? [];
+        if (snapshot.hasError) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Order Details'),
+              elevation: 0,
+            ),
+            body: Center(
+              child: Text('Error loading order: ${snapshot.error}'),
+            ),
+          );
+        }
 
-    // Parse handling
-    final pickupData = (handling['pickup'] as Map<String, dynamic>?) ?? {};
-    final deliveryData = (handling['delivery'] as Map<String, dynamic>?) ?? {};
+        final orderData = snapshot.data ?? {};
+        final order = orderData['order'] as Map<String, dynamic>;
+        final customerData = orderData['customer'] as Map<String, dynamic>? ?? {};
+        final staffData = orderData['staff'] as Map<String, dynamic>? ?? {};
+        final productsMap = orderData['products'] as Map<String, dynamic>? ?? {};
+
+        return _buildOrderScreen(context, order, customerData, staffData, productsMap);
+      },
+    );
+  }
+
+  Widget _buildOrderScreen(
+    BuildContext context,
+    Map<String, dynamic> order,
+    Map<String, dynamic> customerData,
+    Map<String, dynamic> staffData,
+    Map<String, dynamic> productsMap,
+  ) {
+    final breakdown = OrderDataExtractor.extractBreakdown(order);
+    final summary = OrderDataExtractor.extractBreakdownSummary(breakdown);
+    final baskets = OrderDataExtractor.extractBaskets(breakdown);
+    final items = OrderDataExtractor.extractItems(breakdown);
+    final fees = OrderDataExtractor.extractFees(breakdown);
+    final discounts = OrderDataExtractor.extractDiscounts(breakdown);
+    final payment = OrderDataExtractor.extractPayment(breakdown);
+    final auditLog = OrderDataExtractor.extractAuditLog(breakdown);
+    final cancellation = OrderDataExtractor.extractCancellation(order);
+    final pickupAddress = OrderDataExtractor.extractPickupAddress(order);
+    final deliveryAddress = OrderDataExtractor.extractDeliveryAddress(order);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Order #${orderId.toString().substring(0, 8)}'),
+        title: const Text('Order Details'),
         elevation: 0,
         centerTitle: false,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 🎯 Order Summary Card - Modern multi-column
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Status',
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(
-                                    fontSize: 11,
-                                    color: Colors.grey[600],
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _getStatusColor(status),
-                                borderRadius: BorderRadius.circular(7),
-                              ),
-                              child: Text(
-                                status.toUpperCase(),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              'Total',
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(
-                                    fontSize: 11,
-                                    color: Colors.grey[600],
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              totalAmount,
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 22,
-                                    color: _getStatusColor(status),
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Container(height: 0.8, color: Colors.grey[200]),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildCompactInfoItem(
-                          context,
-                          Icons.calendar_today_outlined,
-                          'Created',
-                          createdAt,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildCompactInfoItem(
-                          context,
-                          Icons.receipt_outlined,
-                          'Order ID',
-                          orderId.toString().substring(0, 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
+      body: RefreshIndicator(
+        onRefresh: _refreshOrderData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 📋 Order Details Card
+              OrderDetailsWidgets.buildOrderDetailsCard(context, order, customerData.isEmpty ? null : customerData, staffData.isEmpty ? null : staffData),
+              const SizedBox(height: 20),
 
-            // 🛍️ Product Items Section
-            if (breakdownItems.isNotEmpty) ...[
-              _buildSectionHeader(
+              // 🧺 Laundry Baskets Section
+              if (baskets.isNotEmpty) ...[
+                OrderDetailsWidgets.buildSectionHeader(
+                  context,
+                  Icons.local_laundry_service_outlined,
+                  'Laundry Baskets',
+                  baskets.length.toString(),
+                ),
+                const SizedBox(height: 8),
+                ..._buildBasketCards(context, baskets),
+                const SizedBox(height: 20),
+              ],
+
+              // 🛍️ Product Items Section
+              if (items.isNotEmpty) ...[
+                OrderDetailsWidgets.buildSectionHeader(
+                  context,
+                  Icons.shopping_bag_outlined,
+                  'Products',
+                  items.length.toString(),
+                ),
+                const SizedBox(height: 8),
+                _buildProductsGrid(context, items, productsMap),
+                const SizedBox(height: 20),
+              ],
+
+              // 📋 Fees & Discounts Section
+              if (fees.isNotEmpty || discounts.isNotEmpty) ...[
+                _buildFeesAndDiscounts(context, fees, discounts),
+                const SizedBox(height: 20),
+              ],
+
+              // 💰 Order Summary Section
+              OrderDetailsWidgets.buildSectionHeader(
                 context,
-                Icons.shopping_bag_outlined,
-                'Products',
-                breakdownItems.length.toString(),
+                Icons.receipt_long_outlined,
+                'Summary',
+                '',
               ),
               const SizedBox(height: 8),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final itemCount = breakdownItems.length;
-                  final isMultiColumn = constraints.maxWidth > 600;
-                  final crossAxisCount = isMultiColumn ? 2 : 1;
-
-                  return GridView.builder(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      childAspectRatio: isMultiColumn ? 1.8 : 2.5,
-                    ),
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: itemCount,
-                    itemBuilder: (context, index) {
-                      final item =
-                          breakdownItems[index] as Map<String, dynamic>;
-                      return Card(
-                        margin: EdgeInsets.zero,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: Colors.grey[200]!, width: 1),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(10),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item['product_name'] ?? 'Unknown Product',
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 16,
-                                    ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Qty: ${item['quantity'] ?? 0}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          fontSize: 12,
-                                          color: Colors.grey[700],
-                                        ),
-                                  ),
-                                  Text(
-                                    _formatCurrency(item['unit_price']),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.grey[700],
-                                        ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Spacer(),
-                                  Text(
-                                    _formatCurrency(item['subtotal']),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 16,
-                                          color: Colors.green[700],
-                                        ),
-                                  ),
-                                ],
-                              ),
-                              if (item['discount'] != null &&
-                                  item['discount'] is num &&
-                                  (item['discount'] as num) > 0) ...[
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red[100],
-                                    borderRadius: BorderRadius.circular(5),
-                                  ),
-                                  child: Text(
-                                    '-${_formatCurrency(item['discount'])}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: Colors.red[700],
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 11,
-                                        ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
+              _buildSummaryCard(context, summary),
               const SizedBox(height: 20),
-            ],
 
-            // 🧺 Laundry Baskets Section
-            if (breakdownBaskets.isNotEmpty) ...[
-              _buildSectionHeader(
-                context,
-                Icons.local_laundry_service_outlined,
-                'Laundry Baskets',
-                breakdownBaskets.length.toString(),
-              ),
-              const SizedBox(height: 8),
-              ...breakdownBaskets.asMap().entries.map((entry) {
-                final basket = entry.value as Map<String, dynamic>;
-                final services = (basket['services'] as List?) ?? [];
+              // 💳 Payment Section
+              if (payment.isNotEmpty) ...[
+                OrderDetailsWidgets.buildSectionHeader(
+                  context,
+                  Icons.payment_outlined,
+                  'Payment',
+                  '',
+                ),
+                const SizedBox(height: 8),
+                _buildPaymentCard(context, payment),
+                const SizedBox(height: 20),
+              ],
 
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    side: BorderSide(color: Colors.grey[200]!, width: 0.8),
-                  ),
-                  color: Colors.white,
-                  child: Padding(
-                    padding: const EdgeInsets.all(11),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Basket #${basket['basket_number'] ?? 'N/A'}',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 16,
-                                  ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _getStatusColor(
-                                  basket['status'],
-                                ).withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: Text(
-                                (basket['status'] ?? 'N/A')
-                                    .toString()
-                                    .toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: _getStatusColor(basket['status']),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 7),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 5,
-                          children: [
-                            if (basket['weight'] != null)
-                              _buildMetricChip(
-                                Icons.scale,
-                                '${basket['weight']} kg',
-                                Colors.orange,
-                              ),
-                            if (basket['total'] != null)
-                              _buildMetricChip(
-                                Icons.attach_money,
-                                _formatCurrency(basket['total']),
-                                Colors.green,
-                              ),
-                          ],
-                        ),
-                        if (basket['basket_notes'] != null &&
-                            (basket['basket_notes'] as String).isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(7),
-                              border: Border.all(
-                                color: Colors.grey[300]!,
-                                width: 0.5,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.note_outlined,
-                                  size: 13,
-                                  color: Colors.grey[700],
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    basket['basket_notes'] ?? '',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          fontSize: 12,
-                                          color: Colors.grey[700],
-                                        ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        if (services.isNotEmpty) ...[
-                          const SizedBox(height: 9),
-                          Text(
-                            'Services',
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                ),
-                          ),
-                          const SizedBox(height: 6),
-                          ...services.map((service) {
-                            final svc = service as Map<String, dynamic>;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 9,
-                                  vertical: 7,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.7),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: Colors.blue[200]!,
-                                    width: 0.5,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        svc['service_name'] ?? 'Unknown',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 14,
-                                            ),
-                                      ),
-                                    ),
-                                    Text(
-                                      _formatCurrency(svc['total']),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 14,
-                                            color: Colors.green[700],
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }),
-                        ],
-                      ],
-                    ),
-                  ),
-                );
-              }),
-              const SizedBox(height: 20),
-            ],
-
-            // 📋 Fees & Discounts Section - Multi-column
-            if (breakdownFees.isNotEmpty || breakdownDiscounts.isNotEmpty) ...[
-              if (breakdownFees.isNotEmpty &&
-                  breakdownDiscounts.isNotEmpty) ...[
+              // 📍 Fulfillment Section
+              if (pickupAddress != 'N/A' || deliveryAddress != 'N/A') ...[
+                OrderDetailsWidgets.buildSectionHeader(
+                  context,
+                  Icons.local_shipping_outlined,
+                  'Fulfillment',
+                  '',
+                ),
+                const SizedBox(height: 8),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSectionHeader(
-                            context,
-                            Icons.receipt_long_outlined,
-                            'Fees',
-                            '',
-                          ),
-                          const SizedBox(height: 8),
-                          ...breakdownFees.map((fee) {
-                            final f = fee as Map<String, dynamic>;
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 7),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[50],
-                                borderRadius: BorderRadius.circular(9),
-                                border: Border.all(
-                                  color: Colors.grey[200]!,
-                                  width: 0.5,
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          f['description'] ?? 'Fee',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 14,
-                                              ),
-                                        ),
-                                      ),
-                                      Text(
-                                        _formatCurrency(f['amount']),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                              color: Colors.amber[900],
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    'Type: ${_formatLabel(f['type'] ?? 'Unknown')}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          fontSize: 11,
-                                          color: Colors.grey[600],
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                        ],
+                    if (pickupAddress != 'N/A')
+                      Expanded(
+                        child: OrderDetailsWidgets.buildAddressCard(
+                          context,
+                          'Pickup',
+                          pickupAddress,
+                          Colors.blue,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSectionHeader(
-                            context,
-                            Icons.local_offer_outlined,
-                            'Discounts',
-                            '',
-                          ),
-                          const SizedBox(height: 8),
-                          ...breakdownDiscounts.map((discount) {
-                            final d = discount as Map<String, dynamic>;
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 7),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[50],
-                                borderRadius: BorderRadius.circular(9),
-                                border: Border.all(
-                                  color: Colors.grey[200]!,
-                                  width: 0.5,
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          d['value'] == 'percentage'
-                                              ? '${(d['value'])} off'
-                                              : '${_formatCurrency(d['value'])} off',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 14,
-                                              ),
-                                        ),
-                                      ),
-                                      Text(
-                                        '-${_formatCurrency(d['applied_amount'] ?? 0)}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                              color: Colors.red[700],
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                  if (d['reason'] != null) ...[
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      _formatLabel(
-                                        d['reason'] ?? 'Applied discount',
-                                      ),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelSmall
-                                          ?.copyWith(
-                                            fontSize: 11,
-                                            color: Colors.grey[600],
-                                          ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            );
-                          }),
-                        ],
+                    if (pickupAddress != 'N/A' && deliveryAddress != 'N/A')
+                      const SizedBox(width: 10),
+                    if (deliveryAddress != 'N/A')
+                      Expanded(
+                        child: OrderDetailsWidgets.buildAddressCard(
+                          context,
+                          'Delivery',
+                          deliveryAddress,
+                          Colors.purple,
+                        ),
                       ),
-                    ),
                   ],
                 ),
-              ] else if (breakdownFees.isNotEmpty) ...[
-                _buildSectionHeader(
+                const SizedBox(height: 20),
+              ],
+
+              // ⛔ Cancellation Section
+              if (cancellation != null) ...[
+                _buildCancellationCard(context, cancellation),
+                const SizedBox(height: 20),
+              ],
+
+              // 📝 Audit Log Timeline
+              if (auditLog.isNotEmpty) ...[
+                OrderDetailsWidgets.buildSectionHeader(
+                  context,
+                  Icons.history_outlined,
+                  'Activity Timeline',
+                  '',
+                ),
+                const SizedBox(height: 8),
+                ..._buildAuditLogCards(context, auditLog),
+                const SizedBox(height: 20),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build basket cards
+  List<Widget> _buildBasketCards(
+    BuildContext context,
+    List<dynamic> baskets,
+  ) {
+    return baskets.asMap().entries.map((entry) {
+      final basket = entry.value as Map<String, dynamic>;
+      final services = (basket['services'] as List?) ?? [];
+
+      return Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: Colors.grey[200]!, width: 0.8),
+        ),
+        color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(11),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Basket #${basket['basket_number'] ?? 'N/A'}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: OrderDetailsHelpers.getStatusColor(
+                        basket['status'],
+                      ).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Text(
+                      (basket['status'] ?? 'N/A').toString().toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: OrderDetailsHelpers.getStatusColor(basket['status']),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 7),
+              Wrap(
+                spacing: 10,
+                runSpacing: 5,
+                children: [
+                  if (basket['weight'] != null)
+                    OrderDetailsWidgets.buildMetricChip(
+                      Icons.scale,
+                      '${basket['weight']} kg',
+                      Colors.orange,
+                    ),
+                  if (basket['total'] != null)
+                    OrderDetailsWidgets.buildMetricChip(
+                      Icons.attach_money,
+                      OrderDetailsHelpers.formatCurrency(basket['total']),
+                      Colors.green,
+                    ),
+                ],
+              ),
+              if (services.isNotEmpty) ...[
+                const SizedBox(height: 9),
+                Text(
+                  'Services',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                ..._buildServiceItems(context, services),
+              ],
+            ],
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  /// Build service items
+  List<Widget> _buildServiceItems(
+    BuildContext context,
+    List<dynamic> services,
+  ) {
+    return services.map((service) {
+      final svc = service as Map<String, dynamic>;
+      final subtotal = SafeConversion.toNum(svc['subtotal']);
+
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.grey[300]!, width: 0.5),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      OrderDetailsHelpers.formatLabel(svc['service_type'] ?? 'Service'),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    if (svc['quantity'] != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Qty: ${svc['quantity']}',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if ((subtotal ?? 0) > 0)
+                Text(
+                  OrderDetailsHelpers.formatCurrency(subtotal),
+                  style: TextStyle(
+                    color: Colors.green[700],
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  /// Build products grid - compact horizontal list with square thumbnails
+  Widget _buildProductsGrid(BuildContext context, List<dynamic> items, Map<String, dynamic> productsMap) {
+    print('📦 Building products grid with ${items.length} items');
+    print('📦 Products map contains: ${productsMap.keys.toList()}');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: items.asMap().entries.map((entry) {
+        final index = entry.key;
+        final item = entry.value as Map<String, dynamic>;
+        
+        print('\n📦 Product #${index + 1}:');
+        print('  Item Keys: ${item.keys.toList()}');
+        final productId = item['product_id']?.toString();
+        print('  Product ID: $productId');
+        
+        // Lookup product details from productsMap
+        final productDetails = productId != null ? productsMap[productId] : null;
+        print('  Product details found: ${productDetails != null}');
+        
+        final imageUrl = OrderDetailsHelpers.getProductImageUrl(productDetails?['image_url']);
+        final name = item['product_name'] ?? 'Unknown Product';
+        final quantity = SafeConversion.toInt(item['quantity']);
+        final unitPrice = SafeConversion.toNum(item['unit_price']);
+        final subtotal = SafeConversion.toNum(item['subtotal']);
+        final discount = SafeConversion.toNum(item['discount']);
+        
+        print('  Final image URL: $imageUrl');
+        print('  Name: $name, Qty: $quantity, Price: $unitPrice');
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey[200]!, width: 0.8),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Square thumbnail (80x80)
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(10),
+                  bottomLeft: Radius.circular(10),
+                ),
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  color: Colors.grey[200],
+                  child: imageUrl.isNotEmpty
+                      ? Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            print('❌ Image load failed for: $imageUrl');
+                            print('❌ Error: $error');
+                            return Icon(
+                              Icons.image_not_supported_outlined,
+                              color: Colors.grey[400],
+                              size: 28,
+                            );
+                          },
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) {
+                              print('✅ Image loaded: $imageUrl');
+                              return child;
+                            }
+                            return Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                    : null,
+                                strokeWidth: 2,
+                              ),
+                            );
+                          },
+                        )
+                      : Icon(
+                          Icons.shopping_bag_outlined,
+                          color: Colors.grey[400],
+                          size: 28,
+                        ),
+                ),
+              ),
+              // Product info
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Product name
+                      Text(
+                        name,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      // Quantity and unit price on same row
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[50],
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Qty: $quantity',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '@ ${OrderDetailsHelpers.formatCurrency(unitPrice)}',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                              fontSize: 11,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // Subtotal and discount
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Subtotal',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(
+                                  fontSize: 10,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              Text(
+                                OrderDetailsHelpers.formatCurrency(subtotal),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                  color: Colors.grey[900],
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (discount > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red[50],
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '-${OrderDetailsHelpers.formatCurrency(discount)}',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11,
+                                  color: Colors.red[700],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  /// Build fees and discounts section
+  Widget _buildFeesAndDiscounts(
+    BuildContext context,
+    List<dynamic> fees,
+    List<dynamic> discounts,
+  ) {
+    if (fees.isNotEmpty && discounts.isNotEmpty) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                OrderDetailsWidgets.buildSectionHeader(
                   context,
                   Icons.receipt_long_outlined,
                   'Fees',
                   '',
                 ),
                 const SizedBox(height: 8),
-                ...breakdownFees.map((fee) {
-                  final f = fee as Map<String, dynamic>;
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 7),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(9),
-                      border: Border.all(color: Colors.grey[200]!, width: 0.5),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                f['description'] ?? 'Fee',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                    ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Type: ${_formatLabel(f['type'] ?? 'Unknown')}',
-                                style: Theme.of(context).textTheme.labelSmall
-                                    ?.copyWith(
-                                      fontSize: 11,
-                                      color: Colors.grey[600],
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          _formatCurrency(f['amount']),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: Colors.amber[900],
-                              ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ] else if (breakdownDiscounts.isNotEmpty) ...[
-                _buildSectionHeader(
+                ..._buildFeeCards(context, fees),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                OrderDetailsWidgets.buildSectionHeader(
                   context,
                   Icons.local_offer_outlined,
-                  'Discounts Applied',
+                  'Discounts',
                   '',
                 ),
                 const SizedBox(height: 8),
-                ...breakdownDiscounts.map((discount) {
-                  final d = discount as Map<String, dynamic>;
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 7),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(9),
-                      border: Border.all(color: Colors.grey[200]!, width: 0.5),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                d['value'] == 'percentage'
-                                    ? '${(d['value'])} off'
-                                    : '${_formatCurrency(d['value'])} off',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                    ),
-                              ),
-                              if (d['reason'] != null) ...[
-                                const SizedBox(height: 3),
-                                Text(
-                                  _formatLabel(d['reason']),
-                                  style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(
-                                        fontSize: 11,
-                                        color: Colors.grey[600],
-                                      ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        Text(
-                          '-${_formatCurrency(d['applied_amount'] ?? 0)}',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: Colors.red[700],
-                              ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
+                ..._buildDiscountCards(context, discounts),
               ],
-              const SizedBox(height: 20),
-            ],
-
-            // 💰 Order Summary Section
-            _buildSectionHeader(
-              context,
-              Icons.receipt_long_outlined,
-              'Summary',
-              '',
             ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: Colors.grey[200]!, width: 0.8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
-                    blurRadius: 6,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
+          ),
+        ],
+      );
+    } else if (fees.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          OrderDetailsWidgets.buildSectionHeader(
+            context,
+            Icons.receipt_long_outlined,
+            'Fees',
+            '',
+          ),
+          const SizedBox(height: 8),
+          ..._buildFeeCards(context, fees),
+        ],
+      );
+    } else {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          OrderDetailsWidgets.buildSectionHeader(
+            context,
+            Icons.local_offer_outlined,
+            'Discounts',
+            '',
+          ),
+          const SizedBox(height: 8),
+          ..._buildDiscountCards(context, discounts),
+        ],
+      );
+    }
+  }
+
+  /// Build fee cards
+  List<Widget> _buildFeeCards(BuildContext context, List<dynamic> fees) {
+    return fees.map((fee) {
+      final f = fee as Map<String, dynamic>;
+      return Container(
+        margin: const EdgeInsets.only(bottom: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: Colors.grey[200]!, width: 0.5),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSummaryRow(
-                    context,
-                    'Products',
-                    _formatCurrency(breakdownSummary['subtotal_products']),
-                    isHighlight: false,
-                  ),
-                  _buildSummaryRow(
-                    context,
-                    'Services',
-                    _formatCurrency(breakdownSummary['subtotal_services']),
-                    isHighlight: false,
-                  ),
-                  if ((breakdownSummary['handling'] ?? 0) > 0)
-                    _buildSummaryRow(
-                      context,
-                      'Handling',
-                      _formatCurrency(breakdownSummary['handling']),
-                      isHighlight: false,
-                    ),
-                  if ((breakdownSummary['service_fee'] ?? 0) > 0)
-                    _buildSummaryRow(
-                      context,
-                      'Service Fee',
-                      _formatCurrency(breakdownSummary['service_fee']),
-                      isHighlight: false,
-                    ),
-                  Container(
-                    margin: const EdgeInsets.symmetric(vertical: 10),
-                    height: 0.8,
-                    color: Colors.grey[200],
-                  ),
-                  _buildSummaryRow(
-                    context,
-                    'Subtotal',
-                    _formatCurrency(
-                      (breakdownSummary['subtotal_products'] ?? 0) +
-                          (breakdownSummary['subtotal_services'] ?? 0),
-                    ),
-                    isHighlight: true,
-                  ),
-                  if ((breakdownSummary['discounts'] ?? 0) > 0)
-                    _buildSummaryRow(
-                      context,
-                      'Discounts',
-                      '-${_formatCurrency(breakdownSummary['discounts'])}',
-                      isHighlight: true,
-                      isNegative: true,
-                    ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(7),
-                      border: Border.all(color: Colors.grey[200]!, width: 0.5),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'VAT (${(breakdownSummary['vat_rate'] ?? 12).toStringAsFixed(0)}%)',
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
-                            ),
-                            Text(
-                              _formatCurrency(breakdownSummary['vat_amount']),
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13,
-                                  ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Inclusive',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(color: Colors.grey[600], fontSize: 11),
-                        ),
-                      ],
+                  Text(
+                    f['description'] ?? 'Fee',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
                     ),
                   ),
-                  Container(
-                    margin: const EdgeInsets.symmetric(vertical: 10),
-                    height: 0.8,
-                    color: Colors.grey[200],
-                  ),
-                  _buildSummaryRow(
-                    context,
-                    'TOTAL',
-                    _formatCurrency(breakdownSummary['grand_total']),
-                    isHighlight: true,
-                    isTotal: true,
+                  const SizedBox(height: 2),
+                  Text(
+                    'Type: ${OrderDetailsHelpers.formatLabel(f['type'] ?? 'Unknown')}',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      fontSize: 11,
+                      color: Colors.grey[600],
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-
-            // 💳 Payment Section
-            if (breakdownPayment.isNotEmpty) ...[
-              _buildSectionHeader(
-                context,
-                Icons.payment_outlined,
-                'Payment',
-                '',
+            Text(
+              OrderDetailsHelpers.formatCurrency(f['amount']),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: Colors.amber[900],
               ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(11),
-                  border: Border.all(color: Colors.grey[200]!, width: 0.8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
-                      blurRadius: 6,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Method',
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                              ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green[700],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            _formatLabel(
-                              (breakdownPayment['method'] ?? 'Unknown')
-                                  .toString(),
-                            ),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    _buildSummaryRow(
-                      context,
-                      'Paid Amount',
-                      _formatCurrency(breakdownPayment['amount_paid']),
-                    ),
-                    if ((breakdownPayment['change'] ?? 0) > 0)
-                      _buildSummaryRow(
-                        context,
-                        'Change',
-                        _formatCurrency(breakdownPayment['change']),
-                        isNegative: true,
-                      ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(7),
-                        border: Border.all(
-                          color: Colors.grey[200]!,
-                          width: 0.5,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Status',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _getStatusColor(
-                                breakdownPayment['payment_status'],
-                              ),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              _formatLabel(
-                                (breakdownPayment['payment_status'] ?? 'N/A')
-                                    .toString(),
-                              ),
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (breakdownPayment['reference_number'] != null) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(7),
-                          border: Border.all(
-                            color: Colors.grey[300]!,
-                            width: 0.5,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.receipt_outlined,
-                              size: 15,
-                              color: Colors.grey[600],
-                            ),
-                            const SizedBox(width: 7),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Ref #',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: Colors.grey[600],
-                                          fontSize: 11,
-                                        ),
-                                  ),
-                                  Text(
-                                    breakdownPayment['reference_number'] ?? '',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // 📍 Handling Section - Multi-column
-            if (pickupData.isNotEmpty || deliveryData.isNotEmpty) ...[
-              _buildSectionHeader(
-                context,
-                Icons.local_shipping_outlined,
-                'Fulfillment',
-                '',
-              ),
-              const SizedBox(height: 8),
-              if (pickupData.isNotEmpty && deliveryData.isNotEmpty) ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _buildHandlingCard(
-                        context,
-                        'Pickup',
-                        pickupData,
-                        Colors.blue,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _buildHandlingCard(
-                        context,
-                        'Delivery',
-                        deliveryData,
-                        Colors.purple,
-                      ),
-                    ),
-                  ],
-                ),
-              ] else ...[
-                if (pickupData.isNotEmpty)
-                  _buildHandlingCard(
-                    context,
-                    'Pickup',
-                    pickupData,
-                    Colors.blue,
-                  ),
-                if (deliveryData.isNotEmpty)
-                  _buildHandlingCard(
-                    context,
-                    'Delivery',
-                    deliveryData,
-                    Colors.purple,
-                  ),
-              ],
-              const SizedBox(height: 20),
-            ],
-
-            // ⛔ Cancellation Section
-            if (cancellation != null) ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red[50],
-                  borderRadius: BorderRadius.circular(11),
-                  border: Border.all(color: Colors.grey[200]!, width: 0.8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.cancel_outlined,
-                          color: Colors.red[700],
-                          size: 18,
-                        ),
-                        const SizedBox(width: 7),
-                        Text(
-                          'Order Cancelled',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(
-                                color: Colors.red[700],
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Reason: ${_formatLabel(cancellation['reason'] ?? 'N/A')}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    if (cancellation['notes'] != null) ...[
-                      const SizedBox(height: 5),
-                      Text(
-                        'Notes: ${cancellation['notes']}',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.labelSmall?.copyWith(fontSize: 12),
-                      ),
-                    ],
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.red[700],
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Text(
-                        'Refund: ${_formatLabel((cancellation['refund_status'] ?? 'N/A').toString())}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // 📝 Audit Log Timeline - Compact
-            if (breakdownAuditLog.isNotEmpty) ...[
-              _buildSectionHeader(
-                context,
-                Icons.history_outlined,
-                'Activity Timeline',
-                '',
-              ),
-              const SizedBox(height: 8),
-              ...breakdownAuditLog.asMap().entries.map((entry) {
-                final log = entry.value as Map<String, dynamic>;
-                final action = _formatLabel(log['action'] ?? 'Unknown');
-                final timestamp = _formatDate(log['timestamp'] ?? '');
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 7),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey[200]!, width: 1),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: Colors.blue[100],
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.check_circle,
-                          color: Colors.blue[700],
-                          size: 16,
-                        ),
-                      ),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              action,
-                              style: Theme.of(context).textTheme.labelMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                  ),
-                            ),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.schedule,
-                                  size: 11,
-                                  color: Colors.grey[600],
-                                ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  timestamp,
-                                  style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(
-                                        color: Colors.grey[600],
-                                        fontSize: 11,
-                                      ),
-                                ),
-                              ],
-                            ),
-                            if (log['changed_by'] != null) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                'By: ${log['changed_by']}',
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.labelSmall?.copyWith(fontSize: 11),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-              const SizedBox(height: 20),
-            ],
+            ),
           ],
         ),
-      ),
-    );
+      );
+    }).toList();
   }
 
-  Widget _buildCompactInfoItem(
-    BuildContext context,
-    IconData icon,
-    String label,
-    String value,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
+  /// Build discount cards
+  List<Widget> _buildDiscountCards(BuildContext context, List<dynamic> discounts) {
+    return discounts.map((discount) {
+      final d = discount as Map<String, dynamic>;
+      return Container(
+        margin: const EdgeInsets.only(bottom: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: Colors.grey[200]!, width: 0.5),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Icon(icon, size: 13, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 4),
             Expanded(
-              child: Text(
-                label,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.grey[600],
-                  fontSize: 11,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${OrderDetailsHelpers.formatCurrency(d['value'])} off',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                  if (d['reason'] != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      'Reason: ${OrderDetailsHelpers.formatLabel(d['reason'])}',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Text(
+              '-${OrderDetailsHelpers.formatCurrency(d['applied_amount'] ?? 0)}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: Colors.red[700],
               ),
             ),
           ],
         ),
-        const SizedBox(height: 3),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w700,
-            fontSize: 14,
-            color: Colors.grey[900],
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
+      );
+    }).toList();
   }
 
-  Widget _buildMetricChip(IconData icon, String label, Color color) {
+  /// Build summary card
+  Widget _buildSummaryCard(BuildContext context, Map<String, dynamic> summary) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: Colors.grey[200]!, width: 0.8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSectionHeader(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String badge,
-  ) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        const Spacer(),
-        if (badge.isNotEmpty)
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if ((summary['subtotal_products'] ?? 0) > 0)
+            OrderDetailsWidgets.buildSummaryRow(
+              context,
+              'Products',
+              OrderDetailsHelpers.formatCurrency(summary['subtotal_products']),
+              isHighlight: false,
+            ),
+          if ((summary['subtotal_services'] ?? 0) > 0)
+            OrderDetailsWidgets.buildSummaryRow(
+              context,
+              'Services',
+              OrderDetailsHelpers.formatCurrency(summary['subtotal_services']),
+              isHighlight: false,
+            ),
+          if ((summary['handling'] ?? 0) > 0)
+            OrderDetailsWidgets.buildSummaryRow(
+              context,
+              'Handling',
+              OrderDetailsHelpers.formatCurrency(summary['handling']),
+              isHighlight: false,
+            ),
+          if ((summary['service_fee'] ?? 0) > 0)
+            OrderDetailsWidgets.buildSummaryRow(
+              context,
+              'Service Fee',
+              OrderDetailsHelpers.formatCurrency(summary['service_fee']),
+              isHighlight: false,
+            ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              badge,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
+            margin: const EdgeInsets.symmetric(vertical: 10),
+            height: 0.8,
+            color: Colors.grey[200],
           ),
-      ],
-    );
-  }
-
-  Widget _buildHandlingCard(
-    BuildContext context,
-    String title,
-    Map<String, dynamic> data,
-    MaterialColor color,
-  ) {
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.grey[200]!, width: 0.8),
-      ),
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+          OrderDetailsWidgets.buildSummaryRow(
+            context,
+            'Subtotal',
+            OrderDetailsHelpers.formatCurrency(
+              (summary['subtotal_products'] ?? 0) +
+                  (summary['subtotal_services'] ?? 0),
+            ),
+            isHighlight: true,
+          ),
+          if ((summary['discounts'] ?? 0) > 0)
+            OrderDetailsWidgets.buildSummaryRow(
+              context,
+              'Discounts',
+              '-${OrderDetailsHelpers.formatCurrency(summary['discounts'])}',
+              isHighlight: true,
+              isNegative: true,
+            ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(color: Colors.grey[200]!, width: 0.5),
+            ),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  title,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
+                  'VAT (12% incl.)',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
                   ),
                 ),
-                if (data['status'] != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(data['status']).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Text(
-                      _formatLabel(data['status'].toString()),
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: _getStatusColor(data['status']),
-                      ),
-                    ),
+                Text(
+                  OrderDetailsHelpers.formatCurrency(summary['vat_amount']),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
                   ),
+                ),
               ],
             ),
-            const SizedBox(height: 7),
-            if (data['address'] != null) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(7),
-                  border: Border.all(color: Colors.grey[300]!, width: 0.5),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.location_on_outlined, size: 13, color: color),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Address',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  fontSize: 11,
-                                  color: Colors.grey[600],
-                                ),
-                          ),
-                          Text(
-                            data['address'],
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 7),
-            ],
-            if (data['notes'] != null &&
-                (data['notes'] as String).isNotEmpty) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(7),
-                  border: Border.all(color: Colors.grey[300]!, width: 0.5),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.note_outlined,
-                      size: 12,
-                      color: Colors.grey[700],
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        data['notes'],
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          fontSize: 12,
-                          color: Colors.grey[700],
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 7),
-            ],
-            if (data['started_at'] != null || data['completed_at'] != null) ...[
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(7),
-                  border: Border.all(color: Colors.grey[300]!, width: 0.5),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (data['started_at'] != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          'Started: ${_formatDate(data['started_at'])}',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(fontSize: 12, color: Colors.grey[700]),
-                        ),
-                      ),
-                    if (data['completed_at'] != null)
-                      Text(
-                        'Completed: ${_formatDate(data['completed_at'])}',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.labelSmall?.copyWith(fontSize: 11),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSummaryRow(
-    BuildContext context,
-    String label,
-    String value, {
-    bool isHighlight = true,
-    bool isNegative = false,
-    bool isTotal = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontWeight: isTotal || isHighlight
-                  ? FontWeight.w700
-                  : (isHighlight ? FontWeight.w600 : FontWeight.normal),
-              fontSize: isTotal ? 16 : (isHighlight ? 15 : 13),
-              color: isHighlight ? Colors.grey[800] : Colors.grey[700],
-            ),
           ),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontWeight: isTotal
-                  ? FontWeight.w800
-                  : (isHighlight || isNegative
-                        ? FontWeight.w700
-                        : FontWeight.w600),
-              color: isNegative
-                  ? Colors.red[700]
-                  : (isTotal
-                        ? Colors.green[700]
-                        : (isHighlight ? Colors.grey[800] : Colors.grey[700])),
-              fontSize: isTotal ? 16 : (isHighlight ? 15 : 13),
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 10),
+            height: 0.8,
+            color: Colors.grey[200],
+          ),
+          OrderDetailsWidgets.buildSummaryRow(
+            context,
+            'TOTAL',
+            OrderDetailsHelpers.formatCurrency(
+              summary['grand_total'] ?? 0,
             ),
+            isHighlight: true,
+            isTotal: true,
           ),
         ],
       ),
     );
+  }
+
+  /// Build payment card
+  Widget _buildPaymentCard(BuildContext context, Map<String, dynamic> payment) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: Colors.grey[200]!, width: 0.8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Method',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.green[700],
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  OrderDetailsHelpers.formatLabel(
+                    (payment['method'] ?? 'Unknown').toString(),
+                  ),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          OrderDetailsWidgets.buildSummaryRow(
+            context,
+            'Paid Amount',
+            OrderDetailsHelpers.formatCurrency(payment['amount_paid']),
+          ),
+          if ((payment['change'] ?? 0) > 0)
+            OrderDetailsWidgets.buildSummaryRow(
+              context,
+              'Change',
+              OrderDetailsHelpers.formatCurrency(payment['change']),
+              isNegative: true,
+            ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(color: Colors.grey[200]!, width: 0.5),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Status',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: OrderDetailsHelpers.getStatusColor(
+                      payment['payment_status'],
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    OrderDetailsHelpers.formatLabel(
+                      (payment['payment_status'] ?? 'N/A').toString(),
+                    ),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (payment['reference_number'] != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(color: Colors.grey[300]!, width: 0.5),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.receipt_outlined,
+                    size: 15,
+                    color: Colors.grey[600],
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Reference',
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            fontSize: 10,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        Text(
+                          payment['reference_number'].toString(),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Build cancellation card
+  Widget _buildCancellationCard(
+    BuildContext context,
+    Map<String, dynamic> cancellation,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red[50],
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: Colors.grey[200]!, width: 0.8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.cancel_outlined,
+                color: Colors.red[700],
+                size: 18,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                'Order Cancelled',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: Colors.red[700],
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Reason: ${OrderDetailsHelpers.formatLabel(cancellation['reason'] ?? 'N/A')}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          if (cancellation['notes'] != null) ...[
+            const SizedBox(height: 5),
+            Text(
+              'Notes: ${cancellation['notes']}',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Build audit log cards
+  List<Widget> _buildAuditLogCards(
+    BuildContext context,
+    List<dynamic> auditLog,
+  ) {
+    return auditLog.map((log) {
+      final l = log as Map<String, dynamic>;
+      final action = OrderDetailsHelpers.formatLabel(l['action'] ?? 'Unknown');
+      final timestamp = OrderDetailsHelpers.formatDate(l['timestamp'] ?? '');
+
+      return Container(
+        margin: const EdgeInsets.only(bottom: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[200]!, width: 1),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: Colors.blue[100],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.check_circle,
+                color: Colors.blue[700],
+                size: 16,
+              ),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    action,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.access_time_outlined,
+                        size: 13,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        timestamp,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (l['changed_by'] != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'By: ${l['changed_by']}',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }).toList();
   }
 }
