@@ -128,19 +128,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Orders'),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('My Orders'), elevation: 0),
       body: RefreshIndicator(
         onRefresh: _refreshOrders,
         child: FutureBuilder<List<Map<String, dynamic>>>(
           future: _ordersFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
+              return const Center(child: CircularProgressIndicator());
             }
 
             if (snapshot.hasError) {
@@ -203,9 +198,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           'Start booking laundry services today',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
                         ),
                       ],
                     ),
@@ -307,10 +303,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           status.toUpperCase(),
                           style: Theme.of(context).textTheme.labelSmall
                               ?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: _getStatusColor(status),
-                            fontSize: 11,
-                          ),
+                                fontWeight: FontWeight.w600,
+                                color: _getStatusColor(status),
+                                fontSize: 11,
+                              ),
                         ),
                       ],
                     ),
@@ -329,14 +325,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     children: [
                       Text(
                         'Items',
-                        style: Theme.of(context).textTheme.labelSmall
-                            ?.copyWith(color: Colors.grey[600]),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Colors.grey[600],
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         '$itemCount item${itemCount != 1 ? 's' : ''}',
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
@@ -345,8 +343,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     children: [
                       Text(
                         'Total',
-                        style: Theme.of(context).textTheme.labelSmall
-                            ?.copyWith(color: Colors.grey[600]),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Colors.grey[600],
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(

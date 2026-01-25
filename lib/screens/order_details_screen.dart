@@ -369,15 +369,16 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       final svc = service as Map<String, dynamic>;
       print('🔧 Service data: $svc');
       print('🔧 Service keys: ${svc.keys.toList()}');
-      
+
       // Try multiple field names for service name
-      String serviceName = svc['service_type'] ?? 
-                          svc['service_name'] ?? 
-                          svc['name'] ?? 
-                          svc['type'] ?? 
-                          'Service';
+      String serviceName =
+          svc['service_type'] ??
+          svc['service_name'] ??
+          svc['name'] ??
+          svc['type'] ??
+          'Service';
       print('🔧 Service name extracted: $serviceName');
-      
+
       final subtotal = SafeConversion.toNum(svc['subtotal']);
 
       return Padding(
@@ -848,7 +849,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 🧮 Line items in two-column grid
-          if (subtotalProducts > 0 || subtotalServices > 0 || handling > 0 || serviceFee > 0)
+          if (subtotalProducts > 0 ||
+              subtotalServices > 0 ||
+              handling > 0 ||
+              serviceFee > 0)
             Wrap(
               runSpacing: 10,
               spacing: 16,
@@ -895,7 +899,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                   ),
               ],
             ),
-          if (subtotalProducts > 0 || subtotalServices > 0 || handling > 0 || serviceFee > 0)
+          if (subtotalProducts > 0 ||
+              subtotalServices > 0 ||
+              handling > 0 ||
+              serviceFee > 0)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Container(height: 0.8, color: Colors.grey[200]),
@@ -905,7 +912,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
           OrderDetailsWidgets.buildSummaryRow(
             context,
             'Subtotal',
-            OrderDetailsHelpers.formatCurrency(subtotalProducts + subtotalServices),
+            OrderDetailsHelpers.formatCurrency(
+              subtotalProducts + subtotalServices,
+            ),
             isHighlight: true,
           ),
           if (discounts > 0) ...[
@@ -925,7 +934,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             children: [
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.grey[50],
                     borderRadius: BorderRadius.circular(7),
@@ -958,7 +970,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.green[50],
                     borderRadius: BorderRadius.circular(7),
@@ -978,11 +993,12 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       const SizedBox(height: 3),
                       Text(
                         OrderDetailsHelpers.formatCurrency(grandTotal),
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                          color: Colors.green[700],
-                        ),
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              color: Colors.green[700],
+                            ),
                       ),
                     ],
                   ),
@@ -1025,7 +1041,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.green[700],
                   borderRadius: BorderRadius.circular(7),
@@ -1068,7 +1087,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             children: [
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.blue[50],
                     borderRadius: BorderRadius.circular(8),
@@ -1102,7 +1124,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 11,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.amber[50],
                       borderRadius: BorderRadius.circular(8),

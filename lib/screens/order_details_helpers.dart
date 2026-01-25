@@ -190,17 +190,22 @@ class OrderDataExtractor {
   /// Extract pickup address from handling JSONB
   static String extractPickupAddress(Map<String, dynamic> order) {
     final handlingData = order['handling'] as Map<String, dynamic>? ?? {};
-    final address = (handlingData['pickup'] as Map?)?['address'] ??
-        order['pickup_address'];
-    return (address == null || address.toString().isEmpty) ? 'In-store' : address.toString();
+    final address =
+        (handlingData['pickup'] as Map?)?['address'] ?? order['pickup_address'];
+    return (address == null || address.toString().isEmpty)
+        ? 'In-store'
+        : address.toString();
   }
 
   /// Extract delivery address from handling JSONB
   static String extractDeliveryAddress(Map<String, dynamic> order) {
     final handlingData = order['handling'] as Map<String, dynamic>? ?? {};
-    final address = (handlingData['delivery'] as Map?)?['address'] ??
+    final address =
+        (handlingData['delivery'] as Map?)?['address'] ??
         order['delivery_address'];
-    return (address == null || address.toString().isEmpty) ? 'In-store' : address.toString();
+    return (address == null || address.toString().isEmpty)
+        ? 'In-store'
+        : address.toString();
   }
 
   /// Extract breakdown data

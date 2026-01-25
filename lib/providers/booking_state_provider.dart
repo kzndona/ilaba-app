@@ -4,7 +4,7 @@ import 'package:ilaba/services/pos_service.dart';
 
 /// Booking state constants
 const double TAX_RATE = 0.12; // 12% VAT
-const double SERVICE_FEE_PER_BASKET = 40; // PHP 40
+const double SERVICE_FEE_PER_ORDER = 40; // PHP 40 flat fee per order (not per basket)
 const double DEFAULT_DELIVERY_FEE = 50; // PHP 50
 
 /// Enum for active pane in booking flow
@@ -497,7 +497,7 @@ class BookingStateNotifier extends ChangeNotifier {
       }
     }
 
-    final serviceFee = basketLines.isNotEmpty ? SERVICE_FEE_PER_BASKET : 0;
+    final serviceFee = basketLines.isNotEmpty ? SERVICE_FEE_PER_ORDER : 0;
     final handlingFee = handling.deliver ? DEFAULT_DELIVERY_FEE : 0;
     final subtotalBeforeTax =
         productSubtotal + basketSubtotal + serviceFee + handlingFee;

@@ -484,9 +484,12 @@ class CreateOrderPayload {
     final subtotalProducts = products.fold(0.0, (sum, p) => sum + p.subtotal);
     final subtotalServices = baskets.fold(0.0, (sum, b) => sum + b.subtotal);
     final serviceFee = baskets.isNotEmpty
-        ? 10.0
-        : 0.0; // Service fee for baskets
-    final vatAmount = total * (12 / 112); // 12% VAT (inclusive model)
+        ? 40.0
+        : 0.0; // PHP40 Service fee per order if has baskets
+    
+    // Total is VAT-inclusive (VAT is computed FROM the total, not added to it)
+    final total = subtotalProducts + subtotalServices + serviceFee + shippingFee;
+    final vatAmount = total * (12 / 112); // 12% VAT (inclusive model - extracted from total)
 
     // Calculate final total AFTER loyalty discount
     final finalTotal = loyaltyPointsUsed > 0
