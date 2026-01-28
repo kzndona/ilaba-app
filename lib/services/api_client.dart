@@ -1,4 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 abstract class ApiClient {
   Future<Map<String, dynamic>> get(String endpoint);
@@ -12,17 +16,39 @@ abstract class ApiClient {
 }
 
 class ApiClientImpl implements ApiClient {
-  // TODO: Implement with http or dio package
-  // Configure base URL for Supabase API
-  // Add authentication headers
-  // Handle error responses
+  final SupabaseClient supabase;
 
-  static final String baseUrl = '${dotenv.env['SUPABASE_URL']}/rest/v1';
-  static final String anonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+  ApiClientImpl({required this.supabase});
 
   @override
   Future<Map<String, dynamic>> get(String endpoint) async {
-    throw UnimplementedError('get() not implemented');
+    try {
+      debugPrint('📡 ApiClient.get($endpoint)');
+
+      // Route to appropriate Supabase table based on endpoint
+      if (endpoint == '/api/pos/services') {
+        final response = await supabase
+            .from('services')
+            .select()
+            .eq('is_active', true);
+
+        debugPrint('📡 GET $endpoint response: $response');
+
+        return {'success': true, 'services': response};
+      } else if (endpoint == '/api/pos/products') {
+        final response = await supabase
+            .from('products')
+            .select()
+            .eq('is_active', true);
+
+        return {'success': true, 'products': response};
+      }
+
+      throw Exception('Unknown endpoint: $endpoint');
+    } catch (e) {
+      debugPrint('❌ ApiClient.get() error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
   }
 
   @override
@@ -30,7 +56,56 @@ class ApiClientImpl implements ApiClient {
     String endpoint,
     Map<String, dynamic> body,
   ) async {
-    throw UnimplementedError('post() not implemented');
+    try {
+      debugPrint('📡 ApiClient.post($endpoint) body: $body');
+
+      // Get the backend API URL from environment
+      // For API calls, use BACKEND_API_URL (Next.js server)
+      // For Supabase table queries, use SUPABASE_URL
+      final backendUrl = dotenv.env['BACKEND_API_URL'] ?? '';
+      if (backendUrl.isEmpty) {
+        throw Exception('BACKEND_API_URL not configured in .env file');
+      }
+
+      // Build the full API URL
+      final url = Uri.parse('$backendUrl$endpoint');
+
+      debugPrint('📡 ApiClient.post() URL: $url');
+
+      // Get the session token for authentication (if available)
+      final session = supabase.auth.currentSession;
+      final authToken = session?.accessToken ?? '';
+
+      // Make the HTTP POST request
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          if (authToken.isNotEmpty) 'Authorization': 'Bearer $authToken',
+        },
+        body: jsonEncode(body),
+      );
+
+      debugPrint('📡 ApiClient.post() response status: ${response.statusCode}');
+      debugPrint('📡 ApiClient.post() response body: ${response.body}');
+
+      // Parse the response
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        debugPrint('✅ ApiClient.post() success: $responseData');
+        return responseData;
+      } else {
+        debugPrint('❌ ApiClient.post() error status ${response.statusCode}: $responseData');
+        return {
+          'success': false,
+          'error': responseData['error'] ?? 'Request failed with status ${response.statusCode}',
+        };
+      }
+    } catch (e) {
+      debugPrint('❌ ApiClient.post() error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
   }
 
   @override

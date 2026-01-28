@@ -2,11 +2,10 @@ import 'package:flutter/material.dart' hide Container, SizedBox;
 import 'package:flutter/material.dart' as material show Container, SizedBox;
 import 'package:provider/provider.dart';
 import 'package:ilaba/providers/auth_provider.dart';
-import 'package:ilaba/screens/booking_flow_screen.dart';
-import 'package:ilaba/screens/faq_screen.dart';
-import 'package:ilaba/screens/loyalty_screen.dart';
-import 'package:ilaba/screens/menu_side_screen.dart';
-import 'package:ilaba/screens/orders_screen.dart';
+import 'package:ilaba/screens/info/faq_screen.dart';
+import 'package:ilaba/screens/navigation/menu_side_screen.dart';
+import 'package:ilaba/screens/orders/orders_screen.dart';
+import 'package:ilaba/screens/mobile_booking/mobile_booking_flow_screen.dart';
 import 'package:ilaba/widgets/menu_card.dart';
 
 class HomeMenuScreen extends StatelessWidget {
@@ -77,7 +76,8 @@ class HomeMenuScreen extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const BookingFlowScreen(),
+                              builder: (context) =>
+                                  const MobileBookingFlowScreen(),
                             ),
                           );
                         },
@@ -95,21 +95,21 @@ class HomeMenuScreen extends StatelessWidget {
                           );
                         },
                       ),
-                      MenuCard(
-                        title: "Loyalty Card Program",
-                        description: "Check your points and rewards.",
-                        icon: Icons.card_membership,
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const LoyaltyProgramScreen(),
-                            ),
-                          );
-                        },
-                      ),
 
+                      // MenuCard(
+                      //   title: "Loyalty Card Program",
+                      //   description: "Check your points and rewards.",
+                      //   icon: Icons.card_membership,
+                      //   onPressed: () {
+                      //     Navigator.push(
+                      //       context,
+                      //       MaterialPageRoute(
+                      //         builder: (context) =>
+                      //             const loyalty.LoyaltyProgramScreen(),
+                      //       ),
+                      //     );
+                      //   },
+                      // ),
                       const material.SizedBox(height: 20),
 
                       // FAQ & Help Center button

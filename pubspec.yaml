@@ -47,6 +47,7 @@ dependencies:
 
   # File & Image Handling
   image_picker: ^1.0.0
+  image: ^4.1.0
 
   # Environment variables
   flutter_dotenv: ^5.1.0

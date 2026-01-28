@@ -1,702 +1,729 @@
-/// Web API compatible order models
-/// Matches the backend order structure for /api/orders/transactional-create
-library;
+/// Order Models for Mobile Booking Flow
+/// Adapted from POS system with mobile-specific customizations
+///
+/// Key design decisions:
+/// - Per-ORDER staff service fee (₱40 flat)
+/// - Services are toggles (no weight multipliers, except iron)
+/// - VAT 12% inclusive
+/// - Automatic basket creation when weight > 8kg
+/// - GCash receipt upload is REQUIRED before submission
+/// - Time slot: 11am-3pm only
+/// - Delivery address required for delivery handling
 
-import 'dart:math';
+// ============================================================================
+// ENUMS & CONSTANTS
+// ============================================================================
 
-// Simple UUID-like ID generator (matches UUIDs when displayed)
-String _generateId() {
-  const String chars = '0123456789abcdef';
-  final random = Random();
-  final buffer = StringBuffer();
+enum PaymentMethod { cash, gcash }
 
-  for (var i = 0; i < 36; i++) {
-    if (i == 8 || i == 13 || i == 18 || i == 23) {
-      buffer.write('-');
-    } else {
-      buffer.write(chars[random.nextInt(16)]);
+enum HandlingType { pickup, delivery }
+
+enum LoyaltyTier { tier1, tier2 }
+
+enum TimeSlot {
+  slot11to12, // 11:00 AM - 12:00 PM
+  slot12to1, // 12:00 PM - 1:00 PM
+  slot1to2, // 1:00 PM - 2:00 PM
+  slot2to3, // 2:00 PM - 3:00 PM
+}
+
+extension TimeSlotExtension on TimeSlot {
+  String get label {
+    switch (this) {
+      case TimeSlot.slot11to12:
+        return '11:00 AM - 12:00 PM';
+      case TimeSlot.slot12to1:
+        return '12:00 PM - 1:00 PM';
+      case TimeSlot.slot1to2:
+        return '1:00 PM - 2:00 PM';
+      case TimeSlot.slot2to3:
+        return '2:00 PM - 3:00 PM';
     }
   }
 
-  return buffer.toString();
+  String get startTime {
+    switch (this) {
+      case TimeSlot.slot11to12:
+        return '11:00';
+      case TimeSlot.slot12to1:
+        return '12:00';
+      case TimeSlot.slot1to2:
+        return '13:00';
+      case TimeSlot.slot2to3:
+        return '14:00';
+    }
+  }
 }
 
 // ============================================================================
-// BREAKDOWN MODELS
+// BASKET & SERVICES
 // ============================================================================
 
-class OrderItem {
+/// Services configuration per basket
+/// All services are toggles (on/off) except iron which has weight
+class BasketServices {
+  final String wash; // "off" | "basic" | "premium"
+  final String dry; // "off" | "basic" | "premium"
+  final bool spin; // true = on, false = off
+  final int ironWeightKg; // 0 (off) | 2-8kg
+  final bool fold; // true = on, false = off
+  final int additionalDryMinutes; // 0+ minutes in 8-minute increments
+  final int plasticBags; // quantity
+
+  BasketServices({
+    this.wash = 'off',
+    this.dry = 'off',
+    this.spin = false,
+    this.ironWeightKg = 0,
+    this.fold = false,
+    this.additionalDryMinutes = 0,
+    this.plasticBags = 0,
+  });
+
+  BasketServices copyWith({
+    String? wash,
+    String? dry,
+    bool? spin,
+    int? ironWeightKg,
+    bool? fold,
+    int? additionalDryMinutes,
+    int? plasticBags,
+  }) {
+    return BasketServices(
+      wash: wash ?? this.wash,
+      dry: dry ?? this.dry,
+      spin: spin ?? this.spin,
+      ironWeightKg: ironWeightKg ?? this.ironWeightKg,
+      fold: fold ?? this.fold,
+      additionalDryMinutes: additionalDryMinutes ?? this.additionalDryMinutes,
+      plasticBags: plasticBags ?? this.plasticBags,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'wash': wash,
+    'dry': dry,
+    'spin': spin,
+    'iron_weight_kg': ironWeightKg,
+    'fold': fold,
+    'additional_dry_minutes': additionalDryMinutes,
+    'plastic_bags': plasticBags,
+  };
+
+  factory BasketServices.fromJson(Map<String, dynamic> json) {
+    return BasketServices(
+      wash: json['wash'] as String? ?? 'off',
+      dry: json['dry'] as String? ?? 'off',
+      spin: json['spin'] as bool? ?? false,
+      ironWeightKg: json['iron_weight_kg'] as int? ?? 0,
+      fold: json['fold'] as bool? ?? false,
+      additionalDryMinutes: json['additional_dry_minutes'] as int? ?? 0,
+      plasticBags: json['plastic_bags'] as int? ?? 0,
+    );
+  }
+}
+
+/// Single laundry basket with services
+class Basket {
+  final int basketNumber; // 1, 2, 3...
+  final double weightKg; // 0-8kg per basket
+  final BasketServices services;
+  final String notes; // Per-basket laundry notes
+  double subtotal = 0; // Calculated price
+
+  Basket({
+    required this.basketNumber,
+    required this.weightKg,
+    required this.services,
+    this.notes = '',
+  });
+
+  Basket copyWith({
+    int? basketNumber,
+    double? weightKg,
+    BasketServices? services,
+    String? notes,
+    double? subtotal,
+  }) {
+    final newBasket = Basket(
+      basketNumber: basketNumber ?? this.basketNumber,
+      weightKg: weightKg ?? this.weightKg,
+      services: services ?? this.services,
+      notes: notes ?? this.notes,
+    );
+    newBasket.subtotal = subtotal ?? this.subtotal;
+    return newBasket;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'basket_number': basketNumber,
+    'weight_kg': weightKg,
+    'services': services.toJson(),
+    'notes': notes,
+    'subtotal': subtotal,
+  };
+
+  factory Basket.fromJson(Map<String, dynamic> json) {
+    final basket = Basket(
+      basketNumber: json['basket_number'] as int,
+      weightKg: (json['weight_kg'] as num).toDouble(),
+      services: BasketServices.fromJson(
+        json['services'] as Map<String, dynamic>? ?? {},
+      ),
+      notes: json['notes'] as String? ?? '',
+    );
+    basket.subtotal = (json['subtotal'] as num?)?.toDouble() ?? 0;
+    return basket;
+  }
+}
+
+// ============================================================================
+// PRODUCTS
+// ============================================================================
+
+/// Product for ordering
+class Product {
   final String id;
+  final String itemName;
+  final double unitPrice;
+  final int quantityInStock;
+  final String? imageUrl;
+
+  Product({
+    required this.id,
+    required this.itemName,
+    required this.unitPrice,
+    required this.quantityInStock,
+    this.imageUrl,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'item_name': itemName,
+    'unit_price': unitPrice,
+    'quantity_in_stock': quantityInStock,
+    'image_url': imageUrl,
+  };
+
+  factory Product.fromJson(Map<String, dynamic> json) {
+    return Product(
+      id: json['id'] as String,
+      itemName: json['item_name'] as String,
+      unitPrice: (json['unit_price'] as num).toDouble(),
+      quantityInStock: ((json['quantity'] as num?) ?? 0).toInt(),
+      imageUrl: json['image_url'] as String?,
+    );
+  }
+}
+
+/// Item in order (product with quantity)
+class OrderItem {
   final String productId;
   final String productName;
   final int quantity;
   final double unitPrice;
-  final double unitCost;
-  final double subtotal;
-  final Map<String, dynamic> discount;
 
   OrderItem({
-    required this.id,
     required this.productId,
     required this.productName,
     required this.quantity,
     required this.unitPrice,
-    required this.unitCost,
-    required this.subtotal,
-    this.discount = const {'amount': 0, 'reason': null},
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'product_id': productId,
-      'product_name': productName,
-      'quantity': quantity,
-      'unit_price': unitPrice,
-      'unit_cost': unitCost,
-      'subtotal': subtotal,
-      'discount': discount,
-    };
+  double get totalPrice => unitPrice * quantity;
+
+  Map<String, dynamic> toJson() => {
+    'product_id': productId,
+    'product_name': productName,
+    'quantity': quantity,
+    'unit_price': unitPrice,
+    'subtotal': totalPrice,
+  };
+
+  factory OrderItem.fromJson(Map<String, dynamic> json) {
+    return OrderItem(
+      productId: json['product_id'] as String,
+      productName: json['product_name'] as String,
+      quantity: json['quantity'] as int,
+      unitPrice: (json['unit_price'] as num).toDouble(),
+    );
   }
 }
 
-class OrderService {
-  final String id;
-  final String serviceId;
-  final String serviceName;
-  final bool isPremium;
-  final int multiplier;
-  final double ratePerKg;
-  final double subtotal;
-  final String status;
-  final String? startedAt;
-  final String? completedAt;
-  final String? completedBy;
-  final int? durationInMinutes;
+// ============================================================================
+// SERVICES
+// ============================================================================
 
-  OrderService({
+/// Service definition from database
+class Service {
+  final String id;
+  final String serviceType; // "wash" | "dry" | "spin" | "iron" | "fold"
+  final String name;
+  final String? tier; // "basic" | "premium" (for wash/dry only)
+  final double basePrice;
+  final String? description; // Service description for customers
+  final int? baseDurationMinutes;
+  final bool isActive;
+
+  Service({
     required this.id,
-    required this.serviceId,
-    required this.serviceName,
-    required this.isPremium,
-    required this.multiplier,
-    required this.ratePerKg,
-    required this.subtotal,
-    this.status = 'pending',
-    this.startedAt,
-    this.completedAt,
-    this.completedBy,
-    this.durationInMinutes,
+    required this.serviceType,
+    required this.name,
+    this.tier,
+    required this.basePrice,
+    this.description,
+    this.baseDurationMinutes,
+    this.isActive = true,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'service_id': serviceId,
-      'service_name': serviceName,
-      'is_premium': isPremium,
-      'multiplier': multiplier,
-      'rate_per_kg': ratePerKg,
-      'subtotal': subtotal,
-      'status': status,
-      'started_at': startedAt,
-      'completed_at': completedAt,
-      'completed_by': completedBy,
-      'duration_in_minutes': durationInMinutes,
-    };
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'service_type': serviceType,
+    'name': name,
+    'tier': tier,
+    'base_price': basePrice,
+    'description': description,
+    'base_duration_minutes': baseDurationMinutes,
+    'is_active': isActive,
+  };
+
+  factory Service.fromJson(Map<String, dynamic> json) {
+    return Service(
+      id: json['id'] as String,
+      serviceType: json['service_type'] as String,
+      name: json['name'] as String,
+      tier: json['tier'] as String?,
+      basePrice: (json['base_price'] as num).toDouble(),
+      description: json['description'] as String?,
+      baseDurationMinutes: json['base_duration_minutes'] as int?,
+      isActive: json['is_active'] as bool? ?? true,
+    );
   }
 }
 
-class OrderBasket {
-  final int basketNumber;
-  final double weight;
-  final String? basketNotes;
-  final List<OrderService> services;
-  final double total;
-  final String?
-  approvalStatus; // "pending" | "approved" | "rejected" | null (for web)
-  final String? approvedAt;
-  final String? approvedBy;
-  final String? rejectionReason;
+// ============================================================================
+// FEES
+// ============================================================================
 
-  OrderBasket({
-    required this.basketNumber,
-    required this.weight,
-    required this.services,
-    required this.total,
-    this.basketNotes,
-    this.approvalStatus,
-    this.approvedAt,
-    this.approvedBy,
-    this.rejectionReason,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'basket_number': basketNumber,
-      'weight': weight,
-      'basket_notes': basketNotes,
-      'services': services.map((s) => s.toJson()).toList(),
-      'total': total,
-      'approval_status': approvalStatus,
-      'approved_at': approvedAt,
-      'approved_by': approvedBy,
-      'rejection_reason': rejectionReason,
-    };
-  }
-}
-
-class OrderFee {
-  final String id;
-  final String type;
-  final String description;
+/// Single fee item
+class Fee {
+  final String type; // "staff_service_fee" | "delivery_fee" | "vat"
   final double amount;
+  final String description;
 
-  OrderFee({
-    required this.id,
-    required this.type,
-    required this.description,
-    required this.amount,
+  Fee({required this.type, required this.amount, required this.description});
+
+  Map<String, dynamic> toJson() => {
+    'type': type,
+    'amount': amount,
+    'description': description,
+  };
+
+  factory Fee.fromJson(Map<String, dynamic> json) {
+    return Fee(
+      type: json['type'] as String,
+      amount: (json['amount'] as num).toDouble(),
+      description: json['description'] as String,
+    );
+  }
+}
+
+// ============================================================================
+// ORDER BREAKDOWN
+// ============================================================================
+
+/// Complete order breakdown (JSONB in database)
+class OrderSummary {
+  final double subtotalProducts; // Sum of all product line totals
+  final double subtotalBaskets; // Sum of all basket subtotals
+  final double staffServiceFee; // ₱40 if any basket has services
+  final double deliveryFee; // 0 if pickup, ₱50+ if delivery
+  final double subtotalBeforeVat; // products + baskets + staff fee + delivery
+  final double vatAmount; // 12% inclusive
+  final double loyaltyDiscount; // Amount deducted from total
+  final double total; // Final amount to pay
+
+  OrderSummary({
+    this.subtotalProducts = 0,
+    this.subtotalBaskets = 0,
+    this.staffServiceFee = 0,
+    this.deliveryFee = 0,
+    this.subtotalBeforeVat = 0,
+    this.vatAmount = 0,
+    this.loyaltyDiscount = 0,
+    this.total = 0,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'type': type,
-      'description': description,
-      'amount': amount,
-    };
+  Map<String, dynamic> toJson() => {
+    'subtotal_products': subtotalProducts,
+    'subtotal_baskets': subtotalBaskets,
+    'staff_service_fee': staffServiceFee,
+    'delivery_fee': deliveryFee,
+    'subtotal_before_vat': subtotalBeforeVat,
+    'vat_amount': vatAmount,
+    'loyalty_discount': loyaltyDiscount,
+    'total': total,
+  };
+
+  factory OrderSummary.fromJson(Map<String, dynamic> json) {
+    return OrderSummary(
+      subtotalProducts: (json['subtotal_products'] as num?)?.toDouble() ?? 0,
+      subtotalBaskets: (json['subtotal_baskets'] as num?)?.toDouble() ?? 0,
+      staffServiceFee: (json['staff_service_fee'] as num?)?.toDouble() ?? 0,
+      deliveryFee: (json['delivery_fee'] as num?)?.toDouble() ?? 0,
+      subtotalBeforeVat: (json['subtotal_before_vat'] as num?)?.toDouble() ?? 0,
+      vatAmount: (json['vat_amount'] as num?)?.toDouble() ?? 0,
+      loyaltyDiscount: (json['loyalty_discount'] as num?)?.toDouble() ?? 0,
+      total: (json['total'] as num?)?.toDouble() ?? 0,
+    );
   }
 }
 
-class PaymentTotals {
-  final double? productSubtotal;
-  final double? basketSubtotal;
-  final double? serviceFee;
-  final double? handlingFee;
-  final double taxRate;
-  final double taxIncluded;
-  final double total;
-  final String vatModel; // "inclusive" by default
-
-  PaymentTotals({
-    this.productSubtotal,
-    this.basketSubtotal,
-    this.serviceFee,
-    this.handlingFee,
-    required this.taxRate,
-    required this.taxIncluded,
-    required this.total,
-    this.vatModel = 'inclusive',
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'subtotal_products': productSubtotal,
-      'subtotal_services': basketSubtotal,
-      'service_fee': serviceFee,
-      'handling': handlingFee,
-      'vat_rate': taxRate,
-      'vat_amount': taxIncluded,
-      'vat_model': vatModel,
-      'grand_total': total,
-    };
-  }
-}
-
-class GCashReceipt {
-  final String? screenshotUrl;
-  final String? transactionId;
-  final bool verified;
-
-  GCashReceipt({this.screenshotUrl, this.transactionId, this.verified = false});
-
-  Map<String, dynamic> toJson() {
-    return {
-      'screenshot_url': screenshotUrl,
-      'transaction_id': transactionId,
-      'verified': verified,
-    };
-  }
-}
-
-class OrderPayment {
-  final String method;
-  final String paymentStatus;
-  final double amountPaid;
-  final double changeAmount;
-  final String? completedAt;
-  final GCashReceipt gcashReceipt;
-
-  OrderPayment({
-    required this.method,
-    required this.paymentStatus,
-    required this.amountPaid,
-    this.changeAmount = 0,
-    this.completedAt,
-    required this.gcashReceipt,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'method': method,
-      'payment_status': paymentStatus,
-      'amount_paid': amountPaid,
-      'change_amount': changeAmount,
-      'completed_at': completedAt,
-      'gcash_receipt': gcashReceipt.toJson(),
-    };
-  }
-}
-
-class AuditLogEntry {
-  final String timestamp;
-  final String? changedBy;
-  final String action;
-  final Map<String, dynamic> details;
-
-  AuditLogEntry({
-    required this.timestamp,
-    this.changedBy,
-    required this.action,
-    required this.details,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'timestamp': timestamp,
-      'changed_by': changedBy,
-      'action': action,
-      'details': details,
-    };
-  }
-}
-
+/// Complete breakdown with items, baskets, and summary
 class OrderBreakdown {
   final List<OrderItem> items;
-  final List<OrderBasket> baskets;
-  final List<OrderFee> fees;
-  final PaymentTotals totals;
-  final OrderPayment payment;
-  final List<AuditLogEntry> auditLog;
+  final List<Basket> baskets;
+  final List<Fee> fees;
+  final OrderSummary summary;
 
   OrderBreakdown({
-    required this.items,
-    required this.baskets,
-    required this.fees,
-    required this.totals,
-    required this.payment,
-    required this.auditLog,
+    this.items = const [],
+    this.baskets = const [],
+    this.fees = const [],
+    required this.summary,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'items': items.map((i) => i.toJson()).toList(),
-      'baskets': baskets.map((b) => b.toJson()).toList(),
-      'fees': fees.map((f) => f.toJson()).toList(),
-      'summary': totals.toJson(),
-      'payment': payment.toJson(),
-      'audit_log': auditLog.map((a) => a.toJson()).toList(),
-    };
+  Map<String, dynamic> toJson() => {
+    'items': items.map((e) => e.toJson()).toList(),
+    'baskets': baskets.map((e) => e.toJson()).toList(),
+    'fees': fees.map((e) => e.toJson()).toList(),
+    'summary': summary.toJson(),
+  };
+
+  factory OrderBreakdown.fromJson(Map<String, dynamic> json) {
+    return OrderBreakdown(
+      items:
+          (json['items'] as List?)
+              ?.map((e) => OrderItem.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      baskets:
+          (json['baskets'] as List?)
+              ?.map((e) => Basket.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      fees:
+          (json['fees'] as List?)
+              ?.map((e) => Fee.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      summary: OrderSummary.fromJson(
+        json['summary'] as Map<String, dynamic>? ?? {},
+      ),
+    );
   }
 }
 
 // ============================================================================
-// HANDLING MODELS
+// ORDER HANDLING
 // ============================================================================
 
-class HandlingLocation {
-  final String? address;
-  final double? latitude;
-  final double? longitude;
-  final String? notes;
-  final String status;
-  final String? startedAt;
-  final String? completedAt;
-  final String? completedBy;
-  final int? durationInMinutes;
-
-  HandlingLocation({
-    this.address,
-    this.latitude,
-    this.longitude,
-    this.notes,
-    this.status = 'pending',
-    this.startedAt,
-    this.completedAt,
-    this.completedBy,
-    this.durationInMinutes,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'address': address,
-      'latitude': latitude,
-      'longitude': longitude,
-      'notes': notes,
-      'status': status,
-      'started_at': startedAt,
-      'completed_at': completedAt,
-      'completed_by': completedBy,
-      'duration_in_minutes': durationInMinutes,
-    };
-  }
-}
-
+/// Handling configuration (pickup/delivery, payment, etc.)
 class OrderHandling {
-  final HandlingLocation pickup;
-  final HandlingLocation delivery;
+  final HandlingType handlingType; // pickup or delivery
+  final String? pickupAddress; // Pickup address
+  final String? deliveryAddress; // Required if delivery
+  final TimeSlot? timeSlot; // 11am-3pm slots
+  final String specialInstructions;
+  final PaymentMethod paymentMethod;
+  final double amountPaid; // For cash
+  final String? gcashReference; // For GCash
+  final String? gcashReceiptPath; // Path to receipt in Supabase bucket
+  final bool deliveryReminderAcknowledged; // Must be true for delivery
 
-  OrderHandling({required this.pickup, required this.delivery});
-
-  Map<String, dynamic> toJson() {
-    return {'pickup': pickup.toJson(), 'delivery': delivery.toJson()};
-  }
-}
-
-// ============================================================================
-// ORDER PAYLOAD MODELS
-// ============================================================================
-
-class CustomerData {
-  final String id;
-  final String? phoneNumber;
-  final String? emailAddress;
-
-  CustomerData({required this.id, this.phoneNumber, this.emailAddress});
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'phone_number': phoneNumber,
-      'email_address': emailAddress,
-    };
-  }
-}
-
-// ============================================================================
-// API PAYLOAD MODELS (for backend endpoint)
-// ============================================================================
-
-class BackendServicePayload {
-  final String serviceId;
-  final String serviceName;
-  final double rate;
-  final double subtotal;
-
-  BackendServicePayload({
-    required this.serviceId,
-    required this.serviceName,
-    required this.rate,
-    required this.subtotal,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'service_id': serviceId,
-      'service_name': serviceName,
-      'rate': rate,
-      'subtotal': subtotal,
-    };
-  }
-}
-
-class BackendBasketPayload {
-  final double weight;
-  final double subtotal;
-  final String? notes;
-  final List<BackendServicePayload> services;
-
-  BackendBasketPayload({
-    required this.weight,
-    required this.subtotal,
-    required this.services,
-    this.notes,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'weight': weight,
-      'subtotal': subtotal,
-      'notes': notes,
-      'services': services.map((s) => s.toJson()).toList(),
-    };
-  }
-}
-
-class BackendProductPayload {
-  final String productId;
-  final String productName;
-  final int quantity;
-  final double unitPrice;
-  final double subtotal;
-
-  BackendProductPayload({
-    required this.productId,
-    required this.productName,
-    required this.quantity,
-    required this.unitPrice,
-    required this.subtotal,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'product_id': productId,
-      'product_name': productName,
-      'quantity': quantity,
-      'unit_price': unitPrice,
-      'subtotal': subtotal,
-    };
-  }
-}
-
-class CreateOrderPayload {
-  final String customerId;
-  final double total;
-  final List<BackendBasketPayload> baskets;
-  final List<BackendProductPayload> products;
-  final String? pickupAddress;
-  final String? deliveryAddress;
-  final double shippingFee;
-  final String source;
-  final String? gcashReceiptUrl;
-  final int loyaltyPointsUsed;
-  final double loyaltyDiscountAmount;
-  final int loyaltyDiscountPercentage;
-
-  CreateOrderPayload({
-    required this.customerId,
-    required this.total,
-    required this.baskets,
-    required this.products,
+  OrderHandling({
+    required this.handlingType,
     this.pickupAddress,
     this.deliveryAddress,
-    this.shippingFee = 0,
-    this.source = 'app',
-    this.gcashReceiptUrl,
-    this.loyaltyPointsUsed = 0,
-    this.loyaltyDiscountAmount = 0,
-    this.loyaltyDiscountPercentage = 0,
+    this.timeSlot,
+    this.specialInstructions = '',
+    required this.paymentMethod,
+    required this.amountPaid,
+    this.gcashReference,
+    this.gcashReceiptPath,
+    this.deliveryReminderAcknowledged = false,
   });
 
-  Map<String, dynamic> toJson() {
-    // Calculate totals
-    final subtotalProducts = products.fold(0.0, (sum, p) => sum + p.subtotal);
-    final subtotalServices = baskets.fold(0.0, (sum, b) => sum + b.subtotal);
-    final serviceFee = baskets.isNotEmpty
-        ? 40.0
-        : 0.0; // PHP40 Service fee per order if has baskets
-    
-    // Total is VAT-inclusive (VAT is computed FROM the total, not added to it)
-    final total = subtotalProducts + subtotalServices + serviceFee + shippingFee;
-    final vatAmount = total * (12 / 112); // 12% VAT (inclusive model - extracted from total)
+  OrderHandling copyWith({
+    HandlingType? handlingType,
+    String? pickupAddress,
+    String? deliveryAddress,
+    TimeSlot? timeSlot,
+    String? specialInstructions,
+    PaymentMethod? paymentMethod,
+    double? amountPaid,
+    String? gcashReference,
+    String? gcashReceiptPath,
+    bool? deliveryReminderAcknowledged,
+  }) {
+    return OrderHandling(
+      handlingType: handlingType ?? this.handlingType,
+      pickupAddress: pickupAddress ?? this.pickupAddress,
+      deliveryAddress: deliveryAddress ?? this.deliveryAddress,
+      timeSlot: timeSlot ?? this.timeSlot,
+      specialInstructions: specialInstructions ?? this.specialInstructions,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      amountPaid: amountPaid ?? this.amountPaid,
+      gcashReference: gcashReference ?? this.gcashReference,
+      gcashReceiptPath: gcashReceiptPath ?? this.gcashReceiptPath,
+      deliveryReminderAcknowledged: deliveryReminderAcknowledged ?? this.deliveryReminderAcknowledged,
+    );
+  }
 
-    // Calculate final total AFTER loyalty discount
-    final finalTotal = loyaltyPointsUsed > 0
-        ? total - loyaltyDiscountAmount
-        : total;
+  Map<String, dynamic> toJson() => {
+    'pickup_address': pickupAddress ?? '',
+    'delivery_address': deliveryAddress ?? '',
+    'time_slot': timeSlot?.label,
+    'special_instructions': specialInstructions,
+    'payment_method': paymentMethod == PaymentMethod.cash ? 'cash' : 'gcash',
+    'amount_paid': amountPaid,
+    'gcash_reference': gcashReference,
+    'delivery_reminder_acknowledged': deliveryReminderAcknowledged,
+  };
 
-    // Build handling JSONB structure (matches POS format)
-    final handling = {
-      'pickup': {
-        'address': pickupAddress ?? '',
-        'latitude': null,
-        'longitude': null,
-        'notes': null,
-        'status': 'pending',
-        'started_at': null,
-        'completed_at': null,
-        'completed_by': null,
-        'duration_in_minutes': null,
-      },
-      'delivery': {
-        'address': deliveryAddress,
-        'latitude': null,
-        'longitude': null,
-        'notes': null,
-        'status': deliveryAddress != null ? 'pending' : 'skipped',
-        'started_at': null,
-        'completed_at': null,
-        'completed_by': null,
-        'duration_in_minutes': null,
-      },
-    };
-
-    // Build breakdown JSONB structure (matches POS format)
-    final breakdown = {
-      'items': products.map((p) {
-        return {
-          'id': _generateId(),
-          'discount': {'amount': 0, 'reason': null},
-          'quantity': p.quantity,
-          'subtotal': p.subtotal,
-          'product_id': p.productId,
-          'unit_price': p.unitPrice,
-          'product_name': p.productName,
-        };
-      }).toList(),
-      'baskets': baskets.asMap().entries.map((entry) {
-        final index = entry.key + 1;
-        final b = entry.value;
-        return {
-          'id': _generateId(),
-          'total': b.subtotal,
-          'status': 'pending',
-          'weight': b.weight,
-          'services': b.services.map((s) {
-            return {
-              'id': _generateId(),
-              'status': 'pending',
-              'subtotal': s.subtotal,
-              'is_premium': false,
-              'multiplier': 1,
-              'service_id': s.serviceId,
-              'started_at': null,
-              'started_by': null,
-              'rate_per_kg': s.rate,
-              'completed_at': null,
-              'completed_by': null,
-              'service_name': s.serviceName,
-              'duration_in_minutes': null,
-            };
-          }).toList(),
-          'basket_notes': b.notes,
-          'completed_at': null,
-          'basket_number': index,
-        };
-      }).toList(),
-      'payment': {
-        'change': 0.0,
-        'method': 'gcash',
-        'amount_paid': finalTotal,
-        'completed_at': DateTime.now().toIso8601String(),
-        'payment_status': 'successful',
-      },
-      'summary': {
-        'handling': shippingFee,
-        'vat_rate': 12,
-        'discounts': loyaltyPointsUsed > 0 ? loyaltyDiscountAmount : null,
-        'vat_model': 'inclusive',
-        'vat_amount': vatAmount,
-        'grand_total': finalTotal,
-        'service_fee': serviceFee,
-        'subtotal_products': subtotalProducts,
-        'subtotal_services': subtotalServices,
-      },
-      'audit_log': [
-        {
-          'action': 'created',
-          'timestamp': DateTime.now().toIso8601String(),
-          'changed_by': customerId,
-        },
-      ],
-      'discounts': loyaltyPointsUsed > 0
-          ? [
-              {
-                'id': _generateId(),
-                'type': 'loyalty',
-                'applied_to': 'order_total',
-                'value_type': 'percentage',
-                'value': loyaltyDiscountPercentage,
-                'reason': 'Loyalty points redemption',
-                'applied_amount': loyaltyDiscountAmount,
-              },
-            ]
+  factory OrderHandling.fromJson(Map<String, dynamic> json) {
+    return OrderHandling(
+      handlingType: json['handling_type'] == 'delivery'
+          ? HandlingType.delivery
+          : HandlingType.pickup,
+      pickupAddress: json['pickup_address'] as String?,
+      deliveryAddress: json['delivery_address'] as String?,
+      timeSlot: json['time_slot'] != null
+          ? _parseTimeSlot(json['time_slot'] as String)
           : null,
-      'fees': [
-        if (serviceFee > 0)
-          {
-            'id': _generateId(),
-            'type': 'service_fee',
-            'amount': serviceFee,
-            'description':
-                'Service fee (${baskets.length} basket${baskets.length > 1 ? 's' : ''})',
-          },
-        if (shippingFee > 0)
-          {
-            'id': _generateId(),
-            'type': 'handling_fee',
-            'amount': shippingFee,
-            'description': 'Delivery Fee',
-          },
-      ],
-    };
-
-    // Return POS format structure
-    return {
-      'source': source,
-      'customer_id': customerId,
-      'cashier_id': null, // Mobile orders have no cashier initially
-      'status': 'pending', // Mobile orders start as pending
-      'total_amount': finalTotal, // MUST be total AFTER loyalty discount
-      'breakdown': breakdown,
-      'handling': handling,
-      'order_note': null,
-      if (gcashReceiptUrl != null) 'gcash_receipt_url': gcashReceiptUrl,
-      if (loyaltyPointsUsed > 0) 'loyaltyPointsUsed': loyaltyPointsUsed,
-      if (loyaltyDiscountAmount > 0)
-        'loyaltyDiscountAmount': loyaltyDiscountAmount,
-      if (loyaltyDiscountPercentage > 0)
-        'loyaltyDiscountPercentage': loyaltyDiscountPercentage,
-    };
+      specialInstructions: json['special_instructions'] as String? ?? '',
+      paymentMethod: json['payment_method'] == 'gcash'
+          ? PaymentMethod.gcash
+          : PaymentMethod.cash,
+      amountPaid: (json['amount_paid'] as num?)?.toDouble() ?? 0,
+      gcashReference: json['gcash_reference'] as String?,
+      gcashReceiptPath: json['gcash_receipt_path'] as String?,
+    );
   }
 }
 
-class CreateOrderRequest {
-  final CustomerData customer;
-  final CreateOrderPayload orderPayload;
-
-  CreateOrderRequest({required this.customer, required this.orderPayload});
-
-  Map<String, dynamic> toJson() {
-    return {
-      'customer': customer.toJson(),
-      'orderPayload': {
-        'customer_id': orderPayload.customerId,
-        'total': orderPayload.total,
-        'baskets': orderPayload.baskets.map((b) => b.toJson()).toList(),
-        'products': orderPayload.products.map((p) => p.toJson()).toList(),
-        'pickupAddress': orderPayload.pickupAddress,
-        'deliveryAddress': orderPayload.deliveryAddress,
-        'shippingFee': orderPayload.shippingFee,
-        'source': orderPayload.source,
-        'payments': [
-          {'amount': orderPayload.total, 'method': 'gcash'},
-        ],
-        if (orderPayload.loyaltyPointsUsed > 0)
-          'loyaltyPointsUsed': orderPayload.loyaltyPointsUsed,
-        if (orderPayload.loyaltyDiscountAmount > 0)
-          'loyaltyDiscountAmount': orderPayload.loyaltyDiscountAmount,
-        if (orderPayload.loyaltyDiscountPercentage > 0)
-          'loyaltyDiscountPercentage': orderPayload.loyaltyDiscountPercentage,
-      },
-    };
+TimeSlot? _parseTimeSlot(String label) {
+  switch (label) {
+    case '11:00 AM - 12:00 PM':
+      return TimeSlot.slot11to12;
+    case '12:00 PM - 1:00 PM':
+      return TimeSlot.slot12to1;
+    case '1:00 PM - 2:00 PM':
+      return TimeSlot.slot1to2;
+    case '2:00 PM - 3:00 PM':
+      return TimeSlot.slot2to3;
+    default:
+      return null;
   }
 }
 
-class CreateOrderResponse {
-  final bool success;
-  final String orderId;
-  final Map<String, dynamic>? order;
-  final String? error;
-  final List<Map<String, dynamic>>? insufficientItems;
+// ============================================================================
+// LOYALTY
+// ============================================================================
 
-  CreateOrderResponse({
-    required this.success,
-    required this.orderId,
-    this.order,
-    this.error,
-    this.insufficientItems,
+/// Loyalty discount information
+class LoyaltyDiscount {
+  final LoyaltyTier? tier; // tier1 (5%) or tier2 (15%)
+  final int pointsUsed;
+  final double discountAmount;
+
+  LoyaltyDiscount({this.tier, this.pointsUsed = 0, this.discountAmount = 0});
+
+  double get discountPercent {
+    if (tier == LoyaltyTier.tier1) return 0.05;
+    if (tier == LoyaltyTier.tier2) return 0.15;
+    return 0;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'discount_tier': tier?.toString().split('.').last,
+    'points_used': pointsUsed,
+    'discount_amount': discountAmount,
+  };
+
+  factory LoyaltyDiscount.fromJson(Map<String, dynamic> json) {
+    LoyaltyTier? tier;
+    final tierStr = json['discount_tier'] as String?;
+    if (tierStr == 'tier1') {
+      tier = LoyaltyTier.tier1;
+    } else if (tierStr == 'tier2') {
+      tier = LoyaltyTier.tier2;
+    }
+
+    return LoyaltyDiscount(
+      tier: tier,
+      pointsUsed: json['points_used'] as int? ?? 0,
+      discountAmount: (json['discount_amount'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+// ============================================================================
+// COMPLETE ORDER PAYLOAD (for API)
+// ============================================================================
+
+/// Complete booking order for API submission
+class BookingOrder {
+  final String? customerId;
+  final CustomerData? customerData;
+  final OrderBreakdown breakdown;
+  final OrderHandling handling;
+  final LoyaltyDiscount? loyalty;
+
+  BookingOrder({
+    this.customerId,
+    this.customerData,
+    required this.breakdown,
+    required this.handling,
+    this.loyalty,
   });
 
-  factory CreateOrderResponse.fromJson(Map<String, dynamic> json) {
-    return CreateOrderResponse(
+  Map<String, dynamic> toJson() => {
+    if (customerId != null) 'customer_id': customerId,
+    if (customerData != null) 'customer_data': customerData!.toJson(),
+    'breakdown': breakdown.toJson(),
+    'handling': handling.toJson(),
+    if (handling.gcashReceiptPath != null) 'gcash_receipt_url': handling.gcashReceiptPath,
+    if (loyalty != null) 'loyalty': loyalty!.toJson(),
+  };
+
+  factory BookingOrder.fromJson(Map<String, dynamic> json) {
+    return BookingOrder(
+      customerId: json['customer_id'] as String?,
+      customerData: json['customer_data'] != null
+          ? CustomerData.fromJson(json['customer_data'] as Map<String, dynamic>)
+          : null,
+      breakdown: OrderBreakdown.fromJson(
+        json['breakdown'] as Map<String, dynamic>,
+      ),
+      handling: OrderHandling.fromJson(
+        json['handling'] as Map<String, dynamic>,
+      ),
+      loyalty: json['loyalty'] != null
+          ? LoyaltyDiscount.fromJson(json['loyalty'] as Map<String, dynamic>)
+          : null,
+    );
+  }
+}
+
+/// Customer data for order
+class CustomerData {
+  final String firstName;
+  final String lastName;
+  final String phoneNumber;
+  final String? email;
+
+  CustomerData({
+    required this.firstName,
+    required this.lastName,
+    required this.phoneNumber,
+    this.email,
+  });
+
+  String get fullName => '$firstName $lastName'.trim();
+
+  Map<String, dynamic> toJson() => {
+    'first_name': firstName,
+    'last_name': lastName,
+    'phone_number': phoneNumber,
+    'email': email,
+  };
+
+  factory CustomerData.fromJson(Map<String, dynamic> json) {
+    return CustomerData(
+      firstName: json['first_name'] as String,
+      lastName: json['last_name'] as String,
+      phoneNumber: json['phone_number'] as String,
+      email: json['email'] as String?,
+    );
+  }
+}
+
+// ============================================================================
+// API RESPONSE
+// ============================================================================
+
+/// Response from order creation API
+class OrderResponse {
+  final bool success;
+  final String? orderId;
+  final OrderReceipt? receipt;
+  final String? error;
+
+  OrderResponse({
+    required this.success,
+    this.orderId,
+    this.receipt,
+    this.error,
+  });
+
+  factory OrderResponse.fromJson(Map<String, dynamic> json) {
+    return OrderResponse(
       success: json['success'] as bool,
-      orderId: json['orderId'] as String? ?? '',
-      order: json['order'] as Map<String, dynamic>?,
+      orderId: json['order_id'] as String?,
+      receipt: json['receipt'] != null
+          ? OrderReceipt.fromJson(json['receipt'] as Map<String, dynamic>)
+          : null,
       error: json['error'] as String?,
-      insufficientItems: (json['insufficientItems'] as List?)
-          ?.cast<Map<String, dynamic>>(),
+    );
+  }
+}
+
+/// Receipt details returned from API
+class OrderReceipt {
+  final String orderId;
+  final String customerName;
+  final List<OrderItem> items;
+  final List<Basket> baskets;
+  final double total;
+  final String paymentMethod;
+  final double? change;
+  final LoyaltyDiscount? loyalty;
+  final int? finalLoyaltyPoints;
+
+  OrderReceipt({
+    required this.orderId,
+    required this.customerName,
+    required this.items,
+    required this.baskets,
+    required this.total,
+    required this.paymentMethod,
+    this.change,
+    this.loyalty,
+    this.finalLoyaltyPoints,
+  });
+
+  factory OrderReceipt.fromJson(Map<String, dynamic> json) {
+    return OrderReceipt(
+      orderId: json['order_id'] as String,
+      customerName: json['customer_name'] as String,
+      items:
+          (json['items'] as List?)
+              ?.map((e) => OrderItem.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      baskets:
+          (json['baskets'] as List?)
+              ?.map((e) => Basket.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      total: (json['total'] as num).toDouble(),
+      paymentMethod: json['payment_method'] as String,
+      change: (json['change'] as num?)?.toDouble(),
+      loyalty: json['loyalty'] != null
+          ? LoyaltyDiscount.fromJson(json['loyalty'] as Map<String, dynamic>)
+          : null,
+      finalLoyaltyPoints: json['final_loyalty_points'] as int?,
     );
   }
 }

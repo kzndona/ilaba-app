@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ilaba/models/user.dart' as models;
+import 'package:ilaba/services/password_reset_service.dart';
 import 'package:flutter/foundation.dart';
 
 abstract class AuthService {
@@ -203,17 +204,9 @@ class AuthServiceImpl implements AuthService {
   Future<void> resetPassword(String email) async {
     try {
       debugPrint('🔑 Password reset request for: $email');
-      await supabaseClient.auth.resetPasswordForEmail(email);
+      final passwordResetService = PasswordResetServiceImpl();
+      await passwordResetService.requestPasswordReset(email);
       debugPrint('✅ Password reset email sent');
-    } on AuthException catch (e) {
-      debugPrint(
-        '❌ AuthException during reset: ${e.statusCode} - ${e.message}',
-      );
-
-      if (e.statusCode == '422' || e.statusCode == '400') {
-        throw Exception('No account found with this email address');
-      }
-      throw Exception(e.message);
     } catch (e) {
       debugPrint('❌ Password reset error: ${e.runtimeType} - $e');
 

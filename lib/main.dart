@@ -3,13 +3,16 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:ilaba/providers/auth_provider.dart';
-import 'package:ilaba/providers/booking_state_provider.dart';
-import 'package:ilaba/providers/loyalty_provider.dart';
+import 'package:ilaba/providers/mobile_booking_provider.dart';
 import 'package:ilaba/services/auth_service.dart';
-import 'package:ilaba/services/pos_service_impl.dart';
+import 'package:ilaba/services/api_client.dart';
+import 'package:ilaba/services/services_repository.dart';
+import 'package:ilaba/services/products_repository.dart';
+import 'package:ilaba/services/mobile_order_service.dart';
+import 'package:ilaba/services/gcash_receipt_service.dart';
 import 'package:ilaba/services/loyalty_service.dart';
-import 'package:ilaba/screens/login_screen.dart';
-import 'package:ilaba/screens/home_menu_screen.dart';
+import 'package:ilaba/screens/auth/login_screen.dart';
+import 'package:ilaba/screens/navigation/home_menu_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,22 +47,47 @@ class MyApp extends StatelessWidget {
 
     return MultiProvider(
       providers: [
+        // Auth Service
         Provider<AuthService>(
           create: (_) => AuthServiceImpl(supabaseClient: supabaseClient),
-        ),
-        Provider<LoyaltyService>(
-          create: (_) => LoyaltyServiceImpl(supabaseClient: supabaseClient),
         ),
         ChangeNotifierProvider<AuthProvider>(
           create: (context) =>
               AuthProvider(authService: context.read<AuthService>()),
         ),
-        ChangeNotifierProvider<LoyaltyProvider>(
-          create: (context) =>
-              LoyaltyProvider(loyaltyService: context.read<LoyaltyService>()),
+        // API Client
+        Provider<ApiClient>(
+          create: (_) => ApiClientImpl(supabase: supabaseClient),
         ),
-        ChangeNotifierProvider<BookingStateNotifier>(
-          create: (_) => BookingStateNotifier(SupabasePOSService()),
+        // Mobile Booking Services
+        Provider<ServicesRepository>(
+          create: (context) =>
+              ServicesRepository(apiClient: context.read<ApiClient>()),
+        ),
+        Provider<ProductsRepository>(
+          create: (context) =>
+              ProductsRepository(apiClient: context.read<ApiClient>()),
+        ),
+        Provider<MobileOrderService>(
+          create: (context) =>
+              MobileOrderService(apiClient: context.read<ApiClient>()),
+        ),
+        Provider<GCashReceiptService>(
+          create: (_) => GCashReceiptService(supabase: supabaseClient),
+        ),
+        Provider<LoyaltyService>(
+          create: (context) =>
+              LoyaltyService(authService: context.read<AuthService>()),
+        ),
+        // Mobile Booking Provider
+        ChangeNotifierProvider<MobileBookingProvider>(
+          create: (context) => MobileBookingProvider(
+            servicesRepository: context.read<ServicesRepository>(),
+            productsRepository: context.read<ProductsRepository>(),
+            mobileOrderService: context.read<MobileOrderService>(),
+            gcashReceiptService: context.read<GCashReceiptService>(),
+            loyaltyService: context.read<LoyaltyService>(),
+          ),
         ),
       ],
       child: MaterialApp(
@@ -83,6 +111,20 @@ class MyApp extends StatelessWidget {
                 : const LoginScreen();
           },
         ),
+        onGenerateRoute: (settings) {
+          switch (settings.name) {
+            case '/home':
+              return MaterialPageRoute(
+                builder: (context) => const HomeMenuScreen(),
+              );
+            case '/login':
+              return MaterialPageRoute(
+                builder: (context) => const LoginScreen(),
+              );
+            default:
+              return null;
+          }
+        },
         debugShowCheckedModeBanner: false,
       ),
     );

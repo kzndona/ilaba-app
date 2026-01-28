@@ -6,8 +6,9 @@ class AuthProvider extends ChangeNotifier {
   final AuthService authService;
 
   user_model.User? _currentUser;
-  bool _isLoading = false;
+  bool _isLoading = true; // Start as true for initial load
   String? _errorMessage;
+  bool _initializationComplete = false;
 
   AuthProvider({required this.authService}) {
     _initializeAuth();
@@ -18,15 +19,22 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get isLoggedIn => _currentUser != null;
+  bool get initializationComplete => _initializationComplete;
 
   // Initialize auth on app start
   Future<void> _initializeAuth() async {
     try {
+      _isLoading = true;
       final user = await authService.getCurrentUser();
       _currentUser = user;
+      _isLoading = false;
+      _initializationComplete = true;
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();
+      _isLoading = false;
+      _initializationComplete = true;
+      notifyListeners();
     }
   }
 

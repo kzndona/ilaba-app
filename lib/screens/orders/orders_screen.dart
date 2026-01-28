@@ -2,7 +2,7 @@
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ilaba/providers/auth_provider.dart';
-import 'package:ilaba/screens/order_details_screen.dart';
+import 'package:ilaba/screens/orders/order_details_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});

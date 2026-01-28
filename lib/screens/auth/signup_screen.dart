@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:ilaba/services/registration_service.dart';
-import 'package:ilaba/screens/registration_confirmation_screen.dart';
-import 'package:ilaba/screens/terms_of_service_screen.dart';
-import 'package:ilaba/screens/privacy_policy_screen.dart';
+import 'package:ilaba/screens/auth/registration_confirmation_screen.dart';
+import 'package:ilaba/screens/info/terms_of_service_screen.dart';
+import 'package:ilaba/screens/info/privacy_policy_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:ilaba/providers/auth_provider.dart';
-import 'package:ilaba/screens/signup_screen.dart';
-import 'package:ilaba/screens/forgot_password_screen.dart';
+import 'package:ilaba/screens/auth/signup_screen.dart';
+import 'package:ilaba/screens/auth/forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
