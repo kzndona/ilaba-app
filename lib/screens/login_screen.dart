@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:ilaba/providers/auth_provider.dart';
 import 'package:ilaba/screens/signup_screen.dart';
 import 'package:ilaba/screens/forgot_password_screen.dart';
-import 'package:ilaba/constants/ilaba_colors.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -77,7 +76,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showErrorSnackbar(String message) {
-    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
